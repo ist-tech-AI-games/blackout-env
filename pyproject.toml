@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "blackout-env"
+version = "0.1.0"
+description = "PettingZoo Parallel environment wrapper for the BlackOut Unity ML-Agents game"
+requires-python = ">=3.10"
+dependencies = [
+    "pettingzoo>=1.24.0",
+    "gymnasium>=0.29.0",
+    "numpy>=1.23.5",
+    "mlagents-envs>=1.1.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["blackout_env*"]
