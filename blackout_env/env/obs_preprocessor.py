@@ -49,10 +49,10 @@ class ObsPreprocessor:
     # [RAW_CLASS_SLOT]               self class_id
     # [RAW_SCALAR_START ~ RAW_SCALAR_START+SCALAR_OBS_COUNT-1] own_score, opp_score, time_left
     # [RAW_UNIT_INDEX_SLOT]          unit_index (routing only, stripped from output)
-    RAW_CLASS_SLOT   = N_UNITS * UNIT_BLOCK_SIZE                # 40
-    RAW_SCALAR_START = RAW_CLASS_SLOT + 1                       # 41
-    RAW_UNIT_INDEX_SLOT = RAW_SCALAR_START + SCALAR_OBS_COUNT  # 44
-    RAW_VECTOR_SIZE  = RAW_UNIT_INDEX_SLOT + 1                  # 45
+    RAW_CLASS_SLOT      = N_UNITS * UNIT_BLOCK_SIZE               # 40
+    RAW_SCALAR_START    = RAW_CLASS_SLOT + 1                      # 41
+    RAW_UNIT_INDEX_SLOT = RAW_SCALAR_START + SCALAR_OBS_COUNT    # 44
+    RAW_VECTOR_SIZE     = RAW_UNIT_INDEX_SLOT + 1                 # 45
 
     def __init__(self, semantic_config: dict, n_items: int = 1, n_classes: int = 3):
         self.n_items = n_items

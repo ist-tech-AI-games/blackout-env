@@ -57,7 +57,7 @@ def run_episode(env: BlackOutEnv, seed: int | None = None) -> tuple[dict, int, d
     max_score_1 = 0.0
     shaping_events: list = []
     t0 = time.perf_counter()
-    with tqdm(desc="episode", unit="step") as pbar:
+    with tqdm(desc="episode", unit="step", bar_format="{l_bar}{bar}| {n_fmt}{unit} [{elapsed}<{remaining}{postfix}]") as pbar:
         while env.agents:
             actions = {agent: env.action_space(agent).sample() for agent in env.agents}
             obs, rewards, terminations, truncations, infos = env.step(actions)
