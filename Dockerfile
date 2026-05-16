@@ -1,6 +1,6 @@
 # Python 3.10 required by mlagents-envs 1.1.0
 # Ubuntu 22.04 ships Python 3.10 as default
-FROM nvidia/cuda:11.8.0-cudnn8-runtime-ubuntu22.04
+FROM nvidia/cuda:12.4.1-cudnn9-runtime-ubuntu22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONUNBUFFERED=1
@@ -29,7 +29,8 @@ COPY . /blackout-env
 # mlagents-envs must be installed --no-deps (declares pettingzoo==1.15.0 conflict).
 # blackout-env excludes it from pyproject.toml deps for the same reason.
 RUN pip install --no-cache-dir "mlagents-envs==1.1.0" --no-deps \
- && pip install --no-cache-dir /blackout-env
+ && pip install --no-cache-dir /blackout-env \
+ && pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cu124
 
 # Entrypoint: wrap with Xvfb so Unity RenderTexture offscreen works
 # Usage: docker run ... python train.py
