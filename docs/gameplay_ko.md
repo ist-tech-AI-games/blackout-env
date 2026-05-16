@@ -42,9 +42,9 @@ BlackOut은 두 팀이 1:1로 겨루는 게임입니다. 각 팀은 24×24 격�
 
 | | 클래스 (에셋명) | 충돌 크기 | 기본 속도 | 아이템 수집 | 접촉 시 처치 대상 |
 |---|---|---|---|---|---|
-| <img src="images/unit_worker.png" width="48"> | 노동자 (Collector) | 0.55 | 4 | 가능 | 전달자 |
-| <img src="images/unit_guard.png" width="48"> | 경비원 (Hunter) | 0.65 | 6 | 불가 | 노동자, 전달자; 경비원끼리는 상호 사망 |
-| <img src="images/unit_carrier.png" width="48"> | 전달자 (Carrier) | 0.45 | 6 | 가능 | — |
+| <img src="images/agent_blue_collector.png" width="48"> | 노동자 (Collector) | 0.55 | 4 | 가능 | 전달자 |
+| <img src="images/agent_blue_hunter.png" width="48"> | 경비원 (Hunter) | 0.65 | 6 | 불가 | 노동자, 전달자; 경비원끼리는 상호 사망 |
+| <img src="images/agent_blue_carrier.png" width="48"> | 전달자 (Carrier) | 0.45 | 6 | 가능 | — |
 
 ### 노동자
 기본 유닛. 아이템 수집·적재가 가능하지만 경비원을 처치할 수 없습니다. 중앙 성소에서 경비원으로, 본진 성소에서 전달자로 변신 가능합니다.
@@ -63,11 +63,11 @@ BlackOut은 두 팀이 1:1로 겨루는 게임입니다. 각 팀은 24×24 격�
 
 | | 아이템 | 효과 | 대상 |
 |---|---|---|---|
-| <img src="images/item_battery.png" width="48"> | **배터리** | 창고 적재 시 수량만큼 점수 부여, 흡수 시 점수 영구 확정 | — |
-| <img src="images/item_buff_speed.png" width="48"> | **BuffSpeed** | 이 아이템이 아군 창고에 있는 동안 이동속도 +50% | 아군 전체 |
-| <img src="images/item_debuff_speed.png" width="48"> | **DebuffSpeed** | 이 아이템이 아군 창고에 있는 동안 이동속도 −90% | 적군 노동자만 |
-| <img src="images/item_buff_size.png" width="48"> | **BuffSize** | 이 아이템이 아군 창고에 있는 동안 크기 +50% | 아군 전체 |
-| <img src="images/item_debuff_size.png" width="48"> | **DebuffSize** | 이 아이템이 아군 창고에 있는 동안 크기 −30% | 적군 전체 |
+| <img src="images/energy_2.png" width="48"> | **배터리** | 창고 적재 시 수량만큼 점수 부여, 흡수 시 점수 영구 확정 | — |
+| <img src="images/Feather.png" width="48"> | **BuffSpeed** | 이 아이템이 아군 창고에 있는 동안 이동속도 +50% | 아군 전체 |
+| <img src="images/Slow.png" width="48"> | **DebuffSpeed** | 이 아이템이 아군 창고에 있는 동안 이동속도 −90% | 적군 노동자만 |
+| <img src="images/MushRoom.png" width="48"> | **BuffSize** | 이 아이템이 아군 창고에 있는 동안 크기 +50% | 아군 전체 |
+| <img src="images/MushRoomBad.png" width="48"> | **DebuffSize** | 이 아이템이 아군 창고에 있는 동안 크기 −30% | 적군 전체 |
 
 배터리는 에피소드 시작 시 맵에 총 ~200점 어치가 무작위로 배치됩니다. 특수 아이템(버프/디버프)은 중립 구역에 1개씩만 존재하며, 소멸 후 **10초 쿨다운**으로 재생성됩니다.
 

@@ -203,11 +203,11 @@ Effects are active as long as the **item** sits in storage. Removing or stealing
 
 | | Item | Effect | Target |
 |---|---|---|---|
-| <img src="docs/images/item_battery.png" width="48"> | **Battery** | Grants points equal to item amount on deposit; permanently locked in on absorption | — |
-| <img src="docs/images/item_buff_speed.png" width="48"> | **BuffSpeed** | Speed +50% while this item is in allied storage | All ally units |
-| <img src="docs/images/item_debuff_speed.png" width="48"> | **DebuffSpeed** | Speed −90% while this item is in allied storage | Enemy Worker units only |
-| <img src="docs/images/item_buff_size.png" width="48"> | **BuffSize** | Size +50% while this item is in allied storage | All ally units |
-| <img src="docs/images/item_debuff_size.png" width="48"> | **DebuffSize** | Size −30% while this item is in allied storage | All enemy units |
+| <img src="docs/images/energy_2.png" width="48"> | **Battery** | Grants points equal to item amount on deposit; permanently locked in on absorption | — |
+| <img src="docs/images/Feather.png" width="48"> | **BuffSpeed** | Speed +50% while this item is in allied storage | All ally units |
+| <img src="docs/images/Slow.png" width="48"> | **DebuffSpeed** | Speed −90% while this item is in allied storage | Enemy Worker units only |
+| <img src="docs/images/MushRoom.png" width="48"> | **BuffSize** | Size +50% while this item is in allied storage | All ally units |
+| <img src="docs/images/MushRoomBad.png" width="48"> | **DebuffSize** | Size −30% while this item is in allied storage | All enemy units |
 
 ---
 
