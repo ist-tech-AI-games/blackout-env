@@ -233,15 +233,20 @@ obs[agent] = {
 
 `N = 10*(2+1+(n_items+1)) + n_classes + 3`
 
+Units are ordered unit_0~9 (all agents, sorted by agent_id), interleaved:
+
+| Offset within each unit block | Length | Description |
+|---|---|---|
+| unit_i: pos | 2 | pos_x, pos_y (normalized) |
+| unit_i: team_sign | 1 | ally +1.0, enemy −1.0 |
+| unit_i: holding_item one-hot | `n_items+1` | index 0 = no item, index i = holding item i |
+
+Followed by:
+
 | Segment | Length | Description |
 |---|---|---|
-| pos (× 10 units) | 20 | pos_x, pos_y per unit (normalized) |
-| team_sign (× 10) | 10 | ally +1.0, enemy −1.0 |
-| holding_item one-hot (× 10) | `10 × (n_items+1)` | index 0 = no item, index i = holding item i |
 | class one-hot | `n_classes` | this agent's unit class |
 | scalars | 3 | own_score, opp_score, time_left (all in 0~1) |
-
-Units are ordered unit_0~9 (all agents, sorted by agent_id). Use `team_sign` to distinguish allies from enemies.
 
 #### graphic layout (`float32[H, W, C]`)
 
@@ -393,7 +398,7 @@ import torch
 class MyModel(BaseModel):
     def __init__(self, checkpoint_path: str):
         from policy import MyPolicy
-        net = MyPolicy(vector_size=56, n_channels=7)
+        net = MyPolicy(vector_size=96, n_channels=11)
         ckpt = torch.load(checkpoint_path, weights_only=True)
         net.load_state_dict(ckpt["policy_state"])
         net.eval()
