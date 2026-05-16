@@ -74,6 +74,8 @@ pip install .
 
 ### Docker (GPU Training)
 
+> **Note:** Docker manages the Python environment internally — no uv or conda needed on the host.
+
 #### Prerequisites
 
 - [Docker](https://docs.docker.com/engine/install/)
