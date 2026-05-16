@@ -72,6 +72,15 @@ pip install "mlagents-envs==1.1.0" --no-deps
 pip install .
 ```
 
+#### PyTorch
+
+PyTorch is required for training and competition. Install it separately according to your CUDA version — see [pytorch.org/get-started/locally](https://pytorch.org/get-started/locally/) for the right command.
+
+```bash
+# Example: CUDA 11.8
+pip install torch --index-url https://download.pytorch.org/whl/cu118
+```
+
 ### Docker (GPU Training)
 
 #### Prerequisites

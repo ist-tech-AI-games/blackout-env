@@ -15,6 +15,9 @@ dependencies = [
     # conflicts with pettingzoo>=1.24.0. Install it manually with --no-deps (see README).
 ]
 
+[project.optional-dependencies]
+test = ["tqdm"]
+
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["blackout_env*"]
