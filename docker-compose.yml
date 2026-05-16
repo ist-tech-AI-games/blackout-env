@@ -9,8 +9,8 @@ services:
       # Edit this path to point to your Unity Linux build directory
       - /path/to/blackout_build:/unity_build:ro
     network_mode: host
-    # Override CMD to run a specific script:
-    #   docker compose run blackout-trainer python my_trainer.py
+    # Edit this to run your training script
+    command: python train.py
 
   blackout-competition:
     build: .
@@ -22,6 +22,5 @@ services:
       # Edit this path to point to your Unity Linux build directory
       - /path/to/blackout_build:/unity_build:ro
     network_mode: host
-    # Runs with 1280x720 virtual display for FFmpeg capture
-    # Override CMD:
-    #   docker compose run blackout-competition python run_competition.py
+    # Edit this to run your competition script
+    command: python run_competition.py
