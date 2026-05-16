@@ -6,11 +6,8 @@ services:
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=all
     volumes:
-      # Unity Linux headless build (read-only)
-      - ${UNITY_BUILD_PATH}:/unity_build:ro
-      # User trainer code + config
-      - ${TRAINER_PATH}:/workspace
-    working_dir: /workspace
+      # Edit this path to point to your Unity Linux build directory
+      - /path/to/blackout_build:/unity_build:ro
     network_mode: host
     # Override CMD to run a specific script:
     #   docker compose run blackout-trainer python my_trainer.py
@@ -22,11 +19,8 @@ services:
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=all
     volumes:
-      # Unity Linux build (read-only)
-      - ${UNITY_BUILD_PATH}:/unity_build:ro
-      # Competition script, checkpoints, and recording output
-      - ${COMPETITION_PATH}:/workspace
-    working_dir: /workspace
+      # Edit this path to point to your Unity Linux build directory
+      - /path/to/blackout_build:/unity_build:ro
     network_mode: host
     # Runs with 1280x720 virtual display for FFmpeg capture
     # Override CMD:
