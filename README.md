@@ -109,17 +109,7 @@ volumes:
   - /path/to/blackout_build:/unity_build:ro
 ```
 
-#### 3. Install PyTorch
-
-PyTorch is not included in the image. Add the install command for your CUDA version to the `Dockerfile` before building:
-
-```dockerfile
-RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cu118
-```
-
-See [pytorch.org/get-started/locally](https://pytorch.org/get-started/locally/) for other CUDA versions.
-
-#### 4. Build the image
+#### 3. Build the image
 
 ```bash
 docker compose build
