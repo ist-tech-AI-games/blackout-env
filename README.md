@@ -77,8 +77,11 @@ pip install .
 PyTorch is required for training and competition. Install it separately according to your CUDA version — see [pytorch.org/get-started/locally](https://pytorch.org/get-started/locally/) for the right command.
 
 ```bash
-# Example: CUDA 11.8
+# Example: CUDA 11.8 (pip)
 pip install torch --index-url https://download.pytorch.org/whl/cu118
+
+# Example: CUDA 11.8 (uv)
+uv pip install torch --index-url https://download.pytorch.org/whl/cu118
 ```
 
 ### Docker (GPU Training)
