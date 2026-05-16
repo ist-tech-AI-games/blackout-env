@@ -107,7 +107,7 @@ Set `command:` in `docker-compose.yml` to your training script, then:
 
 ```bash
 docker compose up -d blackout-trainer
-docker compose logs -f blackout-trainer
+docker compose logs -f blackout-trainer  # optional: stream training logs
 ```
 
 Inside the container the build is at `/unity_build`:
