@@ -26,9 +26,11 @@ RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.10 1 \
 WORKDIR /workspace
 
 COPY . /blackout-env
-# mlagents-envs declares a pettingzoo==1.15.0 conflict; install with --no-deps first
+# mlagents-envs declares a pettingzoo==1.15.0 conflict with blackout-env's pettingzoo>=1.24.0.
+# Install both with --no-deps to bypass the resolver, then add runtime deps explicitly.
 RUN pip install --no-cache-dir "mlagents-envs==1.1.0" --no-deps \
- && pip install --no-cache-dir /blackout-env
+ && pip install --no-cache-dir /blackout-env --no-deps \
+ && pip install --no-cache-dir "pettingzoo>=1.24.0" "gymnasium>=0.29.0" "numpy>=1.23.5"
 
 # Entrypoint: wrap with Xvfb so Unity RenderTexture offscreen works
 # Usage: docker run ... python train.py
