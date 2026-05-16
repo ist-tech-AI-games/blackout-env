@@ -2,6 +2,12 @@
 
 PettingZoo Parallel environment wrapper for the BlackOut Unity ML-Agents game.
 
+## Game Overview
+
+BlackOut is a 2-team competitive game. Each team controls 5 units on a procedurally generated 24×24 grid map, collecting **Batteries** and depositing them into storage to accumulate score. Every 20 seconds a **storage absorption** event permanently locks in battery score — but until then, enemies can raid your storage and steal items. First team to 100 points or the highest score after 7 minutes wins.
+
+For full game rules see [docs/gameplay_en.md](docs/gameplay_en.md) / [docs/gameplay_ko.md](docs/gameplay_ko.md).
+
 ## Table of Contents
 
 - [Requirements](#requirements)
@@ -121,6 +127,36 @@ Each agent receives a dict observation:
 | `"vector"` | `float32[N]` | Preprocessed vector obs (positions, scores, one-hot items/classes) |
 | `"graphic"` | `float32[H × W × C]` | Binary channel masks from semantic ID map |
 
+### Graphic channels (`float32[H, W, C]`)
+
+Each channel is a binary 0.0 / 1.0 mask:
+
+| Channel | Name | `SemanticId` constant |
+|---|---|---|
+| 0 | empty space | `SemanticId.EMPTY` |
+| 1 | wall | `SemanticId.WALL` |
+| 2 | ally storage | `SemanticId.ALLY_STORAGE` |
+| 3 | enemy storage | `SemanticId.ENEMY_STORAGE` |
+| 4 | ally unit | `SemanticId.ALLY_UNIT` |
+| 5 | enemy unit | `SemanticId.ENEMY_UNIT` |
+| 6 | Battery | `SemanticId.BATTERY` |
+| 7 | BuffSpeed | `SemanticId.BUFF_SPEED` |
+| 8 | DebuffSpeed | `SemanticId.DEBUFF_SPEED` |
+| 9 | BuffSize | `SemanticId.BUFF_SIZE` |
+| 10 | DebuffSize | `SemanticId.DEBUFF_SIZE` |
+
+### Items
+
+Effects are active as long as the **item** sits in storage. Removing or stealing the item immediately cancels the effect.
+
+| Item | Effect | Target |
+|---|---|---|
+| **Battery** | Grants points equal to item amount on deposit; permanently locked in on absorption | — |
+| **BuffSpeed** | Speed +50% while this item is in allied storage | All ally units |
+| **DebuffSpeed** | Speed −90% while this item is in allied storage | Enemy Worker units only |
+| **BuffSize** | Size +50% while this item is in allied storage | All ally units |
+| **DebuffSize** | Size −30% while this item is in allied storage | All enemy units |
+
 ## Docker (GPU Training)
 
 ### Build
@@ -135,22 +171,18 @@ docker compose build
 
 ### Mounting the game build
 
-The Unity Linux headless build is mounted from outside the container. Set the path in `.env`:
+Open `docker-compose.yml` and set the Unity build path under `volumes:`:
 
-```bash
-cp .env.example .env
-```
-
-```
-UNITY_BUILD_PATH=/absolute/path/to/BlackOut_Linux
-TRAINER_PATH=/absolute/path/to/my_trainer
+```yaml
+volumes:
+  - /path/to/blackout_build:/unity_build:ro
 ```
 
 Inside the container, the build is available at `/unity_build`:
 
 ```python
 env = BlackOutEnv(
-    env_path="/unity_build/BlackOut.x86_64",
+    env_path="/unity_build/blackout_linux_build.x86_64",
     semantic_config_path="semantic_map_config.json",
 )
 ```
