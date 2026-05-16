@@ -124,8 +124,9 @@ env = BlackOutEnv(
 
 ```json
 {
+    "resolution_scale": 4,
     "item_id_offset": 6,
-    "n_items": 1,
+    "n_items": 5,
     "n_classes": 3,
     "ids": {
         "empty": 0,
@@ -254,7 +255,11 @@ Each channel is a binary 0.0 / 1.0 mask:
 | 3 | enemy storage | `SemanticId.ENEMY_STORAGE` |
 | 4 | ally unit | `SemanticId.ALLY_UNIT` |
 | 5 | enemy unit | `SemanticId.ENEMY_UNIT` |
-| 6 + i | item type i | `SemanticId.item_channel(i)` |
+| 6 | Battery | `SemanticId.BATTERY` |
+| 7 | BuffSpeed | `SemanticId.BUFF_SPEED` |
+| 8 | DebuffSpeed | `SemanticId.DEBUFF_SPEED` |
+| 9 | BuffSize | `SemanticId.BUFF_SIZE` |
+| 10 | DebuffSize | `SemanticId.DEBUFF_SIZE` |
 
 ### Action
 
