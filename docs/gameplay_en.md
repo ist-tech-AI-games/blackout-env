@@ -22,6 +22,9 @@ The map is a 24×24 tile grid, procedurally generated each episode from a seed. 
 Each team's spawn point. Enemies cannot enter. Contains one protected storage and a **base shrine** for Carrier transformation.
 
 ### Storage (Battery Cluster)
+
+<img src="images/storage_blue.png" width="48"> <img src="images/storage_red.png" width="48">
+
 Items deposited here become **owned** by that team and apply their effects. Each team has **4 storage areas** — one inside the Research Base (protected) and 3 scattered across the open map (raidable).
 
 Items are stacked automatically on deposit using a priority order based on distance from the spawn point (farthest tiles first). An item is only deposited if it fits entirely; otherwise the unit passes through without depositing.
