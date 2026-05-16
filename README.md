@@ -43,7 +43,9 @@ For full game rules see [docs/gameplay_en.md](docs/gameplay_en.md) / [docs/gamep
 # Install uv (if not already installed)
 powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 
-# Create a Python 3.10 venv and install
+git clone https://github.com/ist-tech-AI-games/blackout-env.git
+cd blackout-env
+
 uv venv blackout --python 3.10
 blackout\Scripts\activate
 uv pip install "mlagents-envs==1.1.0" --no-deps
@@ -55,6 +57,9 @@ uv pip install .
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
+git clone https://github.com/ist-tech-AI-games/blackout-env.git
+cd blackout-env
+
 uv venv blackout --python 3.10
 source blackout/bin/activate
 pip install "mlagents-envs==1.1.0" --no-deps
@@ -64,6 +69,9 @@ pip install .
 #### conda
 
 ```bash
+git clone https://github.com/ist-tech-AI-games/blackout-env.git
+cd blackout-env
+
 conda create -n blackout python=3.10.12
 conda activate blackout
 pip install "mlagents-envs==1.1.0" --no-deps
