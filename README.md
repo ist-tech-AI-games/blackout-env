@@ -103,8 +103,11 @@ docker compose build
 
 #### 4. Run
 
+Set `command:` in `docker-compose.yml` to your training script, then:
+
 ```bash
-docker compose run blackout-trainer python train.py
+docker compose up -d blackout-trainer
+docker compose logs -f blackout-trainer
 ```
 
 Inside the container the build is at `/unity_build`:
