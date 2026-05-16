@@ -21,7 +21,6 @@ def main():
 
     env = BlackOutEnv(
         env_path=args.build,
-        semantic_config_path="../semantic_map_config.json",
     )
 
     policy = RandomPolicy()

@@ -1,0 +1,14 @@
+{
+  "resolution_scale": 4,
+  "n_items": 5,
+  "n_classes": 3,
+  "ids": {
+    "empty": 0,
+    "wall": 1,
+    "ally_storage": 2,
+    "enemy_storage": 3,
+    "ally_unit": 4,
+    "enemy_unit": 5
+  },
+  "item_id_offset": 6
+}
