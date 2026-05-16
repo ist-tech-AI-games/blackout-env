@@ -89,10 +89,12 @@ class BlackOutEnv(ParallelEnv):
 
     metadata = {"render_modes": [], "name": "blackout_v0"}
 
+    _DEFAULT_CONFIG = Path(__file__).parent.parent / "semantic_map_config.json"
+
     def __init__(
         self,
         env_path: str | None,
-        semantic_config_path: str | Path,
+        semantic_config_path: str | Path | None = None,
         map_w: int = 96,
         map_h: int = 96,
         worker_id: int = 0,
@@ -105,9 +107,9 @@ class BlackOutEnv(ParallelEnv):
         ----------
         env_path : str | None
             Path to Unity build executable. Pass None to attach to a running Unity Editor.
-        semantic_config_path : str | Path
-            Path to semantic_map_config.json (shared with Unity StreamingAssets).
-            Must contain "n_items" and "n_classes" fields.
+        semantic_config_path : str | Path | None
+            Path to semantic_map_config.json. Defaults to the config bundled with
+            the package. Override if your Unity build uses a different config.
         map_w, map_h : int
             Visual observation texture size. Must match resolution_scale × map_size in Unity.
         worker_id : int
@@ -127,6 +129,8 @@ class BlackOutEnv(ParallelEnv):
             base_port = find_free_port()
             worker_id = 0  # port is already unique; worker_id offset unnecessary
 
+        if semantic_config_path is None:
+            semantic_config_path = self._DEFAULT_CONFIG
         cfg = load_semantic_config(semantic_config_path)
         n_items = cfg["n_items"]
         n_classes = cfg["n_classes"]

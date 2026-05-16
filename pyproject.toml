@@ -18,3 +18,6 @@ dependencies = [
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["blackout_env*"]
+
+[tool.setuptools.package-data]
+blackout_env = ["semantic_map_config.json"]

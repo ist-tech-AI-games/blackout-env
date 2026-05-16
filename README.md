@@ -117,7 +117,6 @@ Inside the container the build is at `/unity_build`:
 ```python
 env = BlackOutEnv(
     env_path="/unity_build/blackout_linux_build.x86_64",
-    semantic_config_path="semantic_map_config.json",
 )
 ```
 
@@ -125,7 +124,9 @@ env = BlackOutEnv(
 
 ## Usage
 
-`semantic_map_config.json` is the config file shared with Unity's StreamingAssets. It must include:
+`semantic_map_config.json` is the config file shared with Unity's StreamingAssets. A default copy is bundled with the package, so `semantic_config_path` is optional. Pass it explicitly only if you need to override the defaults.
+
+The config must include:
 
 ```json
 {
@@ -149,7 +150,8 @@ from blackout_env import BlackOutEnv, SemanticId, team_of, team_a_agents
 
 env = BlackOutEnv(
     env_path="path/to/BlackOut.exe",  # None = connect to running Unity Editor
-    semantic_config_path="path/to/semantic_map_config.json",
+    # semantic_config_path defaults to the bundled config; override if needed:
+    # semantic_config_path="path/to/semantic_map_config.json",
 )
 
 obs, infos = env.reset()
@@ -357,7 +359,6 @@ model_b = load_checkpoint(
 # create environment
 env = BlackOutEnv(
     env_path="path/to/BlackOut.x86_64",
-    semantic_config_path="semantic_map_config.json",
 )
 
 # single match
