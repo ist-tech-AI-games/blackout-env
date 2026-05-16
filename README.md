@@ -47,7 +47,7 @@ powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | ie
 uv venv .venv --python 3.10
 .venv\Scripts\activate
 uv pip install "mlagents-envs==1.1.0" --no-deps
-uv pip install blackout-env
+uv pip install .
 ```
 
 #### Linux — uv
@@ -58,7 +58,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 uv venv .venv --python 3.10
 source .venv/bin/activate
 pip install "mlagents-envs==1.1.0" --no-deps
-pip install blackout-env
+pip install .
 ```
 
 #### conda
@@ -67,7 +67,7 @@ pip install blackout-env
 conda create -n blackout python=3.10.12
 conda activate blackout
 pip install "mlagents-envs==1.1.0" --no-deps
-pip install blackout-env
+pip install .
 ```
 
 ### Docker (GPU Training)
