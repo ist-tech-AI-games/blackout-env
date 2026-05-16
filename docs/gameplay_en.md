@@ -22,6 +22,9 @@ The map is a 24×24 tile grid, procedurally generated each episode from a seed. 
 Each team's spawn point. Enemies cannot enter. Contains one protected storage and a **base shrine** for Carrier transformation.
 
 ### Storage (Battery Cluster)
+
+<img src="images/storage_blue.png" width="48"> <img src="images/storage_red.png" width="48">
+
 Items deposited here become **owned** by that team and apply their effects. Each team has **4 storage areas** — one inside the Research Base (protected) and 3 scattered across the open map (raidable).
 
 Items are stacked automatically on deposit using a priority order based on distance from the spawn point (farthest tiles first). An item is only deposited if it fits entirely; otherwise the unit passes through without depositing.
@@ -38,11 +41,11 @@ Located inside the Research Base. A **Worker** that enters here transforms into 
 
 All units start as **Workers** and can transform by entering shrine zones. Transformation only works from the Worker class — Guards and Carriers that enter a shrine are unaffected. All units respawn as Workers after death, and this is the **only** way for a Guard or Carrier to revert to Worker.
 
-| Class (asset name) | Collision Width | Base Speed | Can Collect | Kills on contact |
-|---|---|---|---|---|
-| Worker (Collector) | 0.55 | 4 | Yes | Carrier |
-| Guard (Hunter) | 0.65 | 6 | No | Worker, Carrier; mutual kill vs Guard |
-| Carrier | 0.45 | 6 | Yes | — |
+| | Class (asset name) | Collision Width | Base Speed | Can Collect | Kills on contact |
+|---|---|---|---|---|---|
+| <img src="images/agent_blue_collector.png" width="48"> | Worker (Collector) | 0.55 | 4 | Yes | Carrier |
+| <img src="images/agent_blue_hunter.png" width="48"> | Guard (Hunter) | 0.65 | 6 | No | Worker, Carrier; mutual kill vs Guard |
+| <img src="images/agent_blue_carrier.png" width="48"> | Carrier | 0.45 | 6 | Yes | — |
 
 ### Worker
 The default unit form. Can collect and deposit items but cannot defeat Guards. Transforms into Guard at the central shrine or into Carrier at the base shrine.
@@ -59,13 +62,13 @@ A fast, small specialist for collecting items. Dies on contact with **any** enem
 
 All buff/debuff effects are **active only while the item sits in storage**. Removing or stealing the item immediately cancels the effect.
 
-| Item | Effect | Target |
-|---|---|---|
-| **Battery** | Grants points equal to item amount on deposit; permanently locked in on absorption | — |
-| **BuffSpeed** | Speed +50% while this item is in allied storage | All ally units |
-| **DebuffSpeed** | Speed −90% while this item is in allied storage | Enemy Worker units only |
-| **BuffSize** | Size +50% while this item is in allied storage | All ally units |
-| **DebuffSize** | Size −30% while this item is in allied storage | All enemy units |
+| | Item | Effect | Target |
+|---|---|---|---|
+| <img src="images/energy_2.png" width="48"> | **Battery** | Grants points equal to item amount on deposit; permanently locked in on absorption | — |
+| <img src="images/Feather.png" width="48"> | **BuffSpeed** | Speed +50% while this item is in allied storage | All ally units |
+| <img src="images/Slow.png" width="48"> | **DebuffSpeed** | Speed −90% while this item is in allied storage | Enemy Worker units only |
+| <img src="images/MushRoom.png" width="48"> | **BuffSize** | Size +50% while this item is in allied storage | All ally units |
+| <img src="images/MushRoomBad.png" width="48"> | **DebuffSize** | Size −30% while this item is in allied storage | All enemy units |
 
 Batteries are present from the start of each episode (total ~200 score worth, spread across the map). Special items (BuffSpeed, DebuffSpeed, BuffSize, DebuffSize) spawn one at a time on neutral tiles, with a **10-second respawn cooldown** after the previous one is removed.
 

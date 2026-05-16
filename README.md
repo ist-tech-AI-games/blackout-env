@@ -201,13 +201,13 @@ Each channel is a binary 0.0 / 1.0 mask:
 
 Effects are active as long as the **item** sits in storage. Removing or stealing the item immediately cancels the effect.
 
-| Item | Effect | Target |
-|---|---|---|
-| **Battery** | Grants points equal to item amount on deposit; permanently locked in on absorption | — |
-| **BuffSpeed** | Speed +50% while this item is in allied storage | All ally units |
-| **DebuffSpeed** | Speed −90% while this item is in allied storage | Enemy Worker units only |
-| **BuffSize** | Size +50% while this item is in allied storage | All ally units |
-| **DebuffSize** | Size −30% while this item is in allied storage | All enemy units |
+| | Item | Effect | Target |
+|---|---|---|---|
+| <img src="docs/images/energy_2.png" width="48"> | **Battery** | Grants points equal to item amount on deposit; permanently locked in on absorption | — |
+| <img src="docs/images/Feather.png" width="48"> | **BuffSpeed** | Speed +50% while this item is in allied storage | All ally units |
+| <img src="docs/images/Slow.png" width="48"> | **DebuffSpeed** | Speed −90% while this item is in allied storage | Enemy Worker units only |
+| <img src="docs/images/MushRoom.png" width="48"> | **BuffSize** | Size +50% while this item is in allied storage | All ally units |
+| <img src="docs/images/MushRoomBad.png" width="48"> | **DebuffSize** | Size −30% while this item is in allied storage | All enemy units |
 
 ---
 
