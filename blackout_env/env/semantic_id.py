@@ -49,6 +49,18 @@ class SemanticId:
     ENEMY_UNIT:    int = 5
     ITEM_ID_OFFSET: int = 6
 
+    # Item channels — KnownItems array order from BlackOutEpisodeCoordinator
+    # Scores points equal to item amount when deposited into allied storage
+    BATTERY:      int = 6
+    # Speed +50% for all ally units while in allied storage
+    BUFF_SPEED:   int = 7
+    # Speed -90% for enemy Collector units while in allied storage
+    DEBUFF_SPEED: int = 8
+    # Size +50% for all ally units while in allied storage
+    BUFF_SIZE:    int = 9
+    # Size -30% for all enemy units while in allied storage
+    DEBUFF_SIZE:  int = 10
+
     # Convenience tuple of all base (non-item) channel indices
     BASE_IDS: tuple[int, ...] = (0, 1, 2, 3, 4, 5)
 
