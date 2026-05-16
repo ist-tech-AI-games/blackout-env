@@ -78,10 +78,10 @@ PyTorch is required for training and competition. Install it separately accordin
 
 ```bash
 # Example: CUDA 11.8 (pip)
-pip install torch --index-url https://download.pytorch.org/whl/cu118
+pip install torch --index-url https://download.pytorch.org/whl/cu124
 
 # Example: CUDA 11.8 (uv)
-uv pip install torch --index-url https://download.pytorch.org/whl/cu118
+uv pip install torch --index-url https://download.pytorch.org/whl/cu124
 ```
 
 ### Docker (GPU Training)
