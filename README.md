@@ -10,10 +10,11 @@ For full game rules see [docs/gameplay_en.md](docs/gameplay_en.md) / [docs/gamep
 
 ## Table of Contents
 
-- [Requirements](#requirements)
+- [Getting Started](#getting-started)
+  - [Local Installation](#local-installation)
+  - [Docker (GPU Training)](#docker-gpu-training)
 - [Usage](#usage)
 - [Observation Space](#observation-space)
-- [Docker (GPU Training)](#docker-gpu-training)
 - [Competition](#competition)
   - [Observation](#observation)
   - [Action](#action)
@@ -26,7 +27,9 @@ For full game rules see [docs/gameplay_en.md](docs/gameplay_en.md) / [docs/gamep
 
 ---
 
-## Requirements
+## Getting Started
+
+### Local Installation
 
 **Python 3.10.x required.** (`mlagents-envs 1.1.0` does not support 3.11+)
 
@@ -34,9 +37,7 @@ For full game rules see [docs/gameplay_en.md](docs/gameplay_en.md) / [docs/gamep
 > blackout-env's requirement of `pettingzoo>=1.24.0`. Since `mlagents-envs` does not actually import
 > pettingzoo at runtime, install it with `--no-deps` first, then install blackout-env normally.
 
----
-
-### Windows — uv
+#### Windows — uv
 
 ```powershell
 # Install uv (if not already installed)
@@ -49,7 +50,7 @@ uv pip install "mlagents-envs==1.1.0" --no-deps
 uv pip install blackout-env
 ```
 
-### Linux — uv
+#### Linux — uv
 
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -60,7 +61,7 @@ pip install "mlagents-envs==1.1.0" --no-deps
 pip install blackout-env
 ```
 
-### conda
+#### conda
 
 ```bash
 conda create -n blackout python=3.10.12
@@ -68,6 +69,54 @@ conda activate blackout
 pip install "mlagents-envs==1.1.0" --no-deps
 pip install blackout-env
 ```
+
+### Docker (GPU Training)
+
+#### Prerequisites
+
+- [Docker](https://docs.docker.com/engine/install/)
+- [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html) (for GPU passthrough)
+
+#### 1. Download and extract the Unity Linux build
+
+Download `blackout_linux_build_x86_64.zip` from the [Releases page](../../releases) and extract it:
+
+```bash
+unzip blackout_linux_build_x86_64.zip -d ~/blackout_build
+chmod +x ~/blackout_build/blackout_linux_build.x86_64
+```
+
+#### 2. Configure the build path
+
+Open `docker-compose.yml` and set the Unity build path under `volumes:`:
+
+```yaml
+volumes:
+  - /path/to/blackout_build:/unity_build:ro
+```
+
+#### 3. Build the image
+
+```bash
+docker compose build
+```
+
+#### 4. Run
+
+```bash
+docker compose run blackout-trainer python train.py
+```
+
+Inside the container the build is at `/unity_build`:
+
+```python
+env = BlackOutEnv(
+    env_path="/unity_build/blackout_linux_build.x86_64",
+    semantic_config_path="semantic_map_config.json",
+)
+```
+
+---
 
 ## Usage
 
@@ -118,6 +167,8 @@ obs, infos = env.reset(seed=99)   # different layout
 obs, infos = env.reset()          # unseeded — random layout
 ```
 
+---
+
 ## Observation Space
 
 Each agent receives a dict observation:
@@ -156,36 +207,6 @@ Effects are active as long as the **item** sits in storage. Removing or stealing
 | **DebuffSpeed** | Speed −90% while this item is in allied storage | Enemy Worker units only |
 | **BuffSize** | Size +50% while this item is in allied storage | All ally units |
 | **DebuffSize** | Size −30% while this item is in allied storage | All enemy units |
-
-## Docker (GPU Training)
-
-### Build
-
-```bash
-docker compose build
-```
-
-### GPU
-
-`docker-compose.yml` is pre-configured for NVIDIA GPU passthrough. The host must have [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html) installed.
-
-### Mounting the game build
-
-Open `docker-compose.yml` and set the Unity build path under `volumes:`:
-
-```yaml
-volumes:
-  - /path/to/blackout_build:/unity_build:ro
-```
-
-Inside the container, the build is available at `/unity_build`:
-
-```python
-env = BlackOutEnv(
-    env_path="/unity_build/blackout_linux_build.x86_64",
-    semantic_config_path="semantic_map_config.json",
-)
-```
 
 ---
 
