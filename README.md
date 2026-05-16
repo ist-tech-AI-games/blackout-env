@@ -44,8 +44,8 @@ For full game rules see [docs/gameplay_en.md](docs/gameplay_en.md) / [docs/gamep
 powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 
 # Create a Python 3.10 venv and install
-uv venv .venv --python 3.10
-.venv\Scripts\activate
+uv venv blackout --python 3.10
+blackout\Scripts\activate
 uv pip install "mlagents-envs==1.1.0" --no-deps
 uv pip install .
 ```
@@ -55,8 +55,8 @@ uv pip install .
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
-uv venv .venv --python 3.10
-source .venv/bin/activate
+uv venv blackout --python 3.10
+source blackout/bin/activate
 pip install "mlagents-envs==1.1.0" --no-deps
 pip install .
 ```
