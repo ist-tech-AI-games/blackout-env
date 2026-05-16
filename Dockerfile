@@ -25,9 +25,8 @@ RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.10 1 \
 
 WORKDIR /workspace
 
-# Install libblackout
-COPY . /libblackout
-RUN pip install --no-cache-dir /libblackout
+COPY . /blackout-env
+RUN pip install --no-cache-dir /blackout-env
 
 # Entrypoint: wrap with Xvfb so Unity RenderTexture offscreen works
 # Usage: docker run ... python train.py
