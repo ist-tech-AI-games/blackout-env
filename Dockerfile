@@ -26,9 +26,17 @@ RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.10 1 \
 WORKDIR /workspace
 
 COPY . /blackout-env
-# mlagents-envs must be installed --no-deps (declares pettingzoo==1.15.0 conflict).
-# blackout-env excludes it from pyproject.toml deps for the same reason.
+# mlagents-envs declares pettingzoo==1.15.0 which conflicts with blackout-env's pettingzoo>=1.24.0.
+# Install it with --no-deps, then manually install its other required dependencies.
 RUN pip install --no-cache-dir "mlagents-envs==1.1.0" --no-deps \
+ && pip install --no-cache-dir \
+    cloudpickle \
+    "grpcio>=1.11.0,<=1.48.2" \
+    "Pillow>=4.2.1" \
+    "protobuf>=3.6,<3.21" \
+    "pyyaml>=3.1.0" \
+    "gym>=0.21.0" \
+    "filelock>=3.4.0" \
  && pip install --no-cache-dir /blackout-env \
  && pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cu124
 
