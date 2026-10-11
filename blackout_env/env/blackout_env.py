@@ -307,7 +307,9 @@ class BlackOutEnv(ParallelEnv):
 
         self._latest_rewards = rewards
         self._latest_terminations = terminations
-        return obs
+        # Unity reports agents in its own order (e.g. unit_3, unit_2, ...).
+        # Return them in unitIndex order so training code and run_match see the same row order.
+        return {a: obs[a] for a in self.possible_agents if a in obs}
 
     def _collect_map_obs(self) -> None:
         """
