@@ -264,6 +264,7 @@ class BlackOutEnv(ParallelEnv):
         rewards: dict[str, float] = {a: 0.0 for a in self.agents}
         terminations: dict[str, bool] = {a: False for a in self.agents}
         scalars_captured = False
+        terminal_scalars_captured = False
 
         self._collect_map_obs()
 
@@ -290,9 +291,11 @@ class BlackOutEnv(ParallelEnv):
                 r = float(terminal_steps[agent_id].reward)
                 rewards[aname] = r
                 terminations[aname] = True
-                if not scalars_captured:
+                # Terminal obs carry the final score; prefer them over decision steps of
+                # the next episode that can arrive in the same step (score reset to 0).
+                if not terminal_scalars_captured:
                     self._latest_scalars = self._extract_scalars(aname, raw_vector)
-                    scalars_captured = True
+                    scalars_captured = terminal_scalars_captured = True
 
                 # Derive winner from the first terminal agent's reward.
                 # unit 0~4 = Team A, 5~9 = Team B. Winner gets +1, loser -1, draw 0.
