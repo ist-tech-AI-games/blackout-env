@@ -1,0 +1,23 @@
+# Policy container for one competition team.
+# Runs only the team's policy.py + checkpoint.pt; no network, no Unity, no blackout-env install.
+#
+#   docker build -f Dockerfile.policy -t blackout-policy:latest .
+
+FROM nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    HOME=/tmp
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3.10 \
+    python3-pip \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN pip install --no-cache-dir "numpy>=1.23.5" \
+ && pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cu124
+
+COPY blackout_env/competition/protocol.py blackout_env/competition/policy_server.py /app/
+
+ENTRYPOINT ["python3", "/app/policy_server.py"]

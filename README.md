@@ -23,6 +23,7 @@ For full game rules see [docs/gameplay_en.md](docs/gameplay_en.md) / [docs/gamep
   - [Step 3: Run a match](#step-3-run-a-match)
   - [Different architectures per team](#different-architectures-per-team)
   - [Implementing BaseModel directly (optional)](#implementing-basemodel-directly-optional)
+  - [Official evaluation](#official-evaluation)
 - [Utilities](#utilities)
 
 ---
@@ -440,6 +441,50 @@ class MyModel(BaseModel):
 
 > `load_checkpoint` implements this pattern internally via `CheckpointModel`.  
 > Only subclass `BaseModel` directly if you need custom preprocessing or ensembling.
+
+### Official evaluation
+
+Official matches run each team's policy in its own container. Submit a directory with:
+
+```
+my_team/
+├── policy.py       # exactly one nn.Module subclass (or set class_name in meta.json)
+├── checkpoint.pt   # {"policy_state": state_dict} or a raw state dict
+└── meta.json       # optional
+```
+
+```json
+{"class_name": "MyPolicy", "kwargs": {"vector_size": 96, "n_channels": 11}, "state_dict_key": "policy_state"}
+```
+
+`forward(vector, graphic)` is called once per step with your 5 agents as a batch (see [Row order](#row-order)).
+Custom `BaseModel` subclasses are not used in official matches.
+
+**Limits per team**
+
+| Resource | Limit |
+|---|---|
+| GPU | 50% of SMs and 11 GB memory on a shared RTX 3090 (CUDA MPS, enforced by the server, not overridable from the container) |
+| CPU / RAM | 4 cores / 16 GB |
+| Time per step | 100 ms (first step: 30 s for warm-up) |
+| Network | none |
+| Filesystem | read-only except `/tmp` (1 GB) |
+| Packages | Python 3.10, PyTorch (CUDA 12.4), NumPy only |
+
+If your policy misses the time limit, raises an exception, or returns a wrong shape, your agents stand still `(0, 0)` for that step. NaN/inf outputs are replaced with 0 and actions are clipped to `[-1, 1]`.
+
+**Winner**
+
+The winner of each match is decided by the final game score (first to the target score, or the higher score when time runs out). Rewards returned by the environment are for training only and do not affect the result. Each seed is played twice with sides swapped.
+
+**Running it yourself (Linux + NVIDIA GPU + Docker)**
+
+```bash
+docker build -f Dockerfile.policy -t blackout-policy:latest .
+xvfb-run -a python -m blackout_env.competition.run_competition     --build ~/blackout_build/blackout_linux_build.x86_64     --team-a my_team --team-b other_team     --seeds 11 22 --out results/my_team_vs_other_team.json
+```
+
+`--no-gpu` runs both policies on CPU without MPS. The result JSON contains per-match scores and per-team timeout/error counts.
 
 ---
 
