@@ -359,3 +359,6 @@ class MyPolicy(nn.Module):
 ```
 
 `load_checkpoint`가 반환하는 `CheckpointModel`은 `graphic`을 `(B, H, W, C) → (B, C, H, W)`로 자동 변환합니다.
+
+배치 행은 unit 번호순으로 정렬됩니다. Team A는 i번째 행이 `unit_i`, Team B는 `unit_{5+i}`입니다.
+vector에는 자기 unit 번호가 없으므로, 자기 유닛 블록은 행 번호와 unit_0 블록의 `team_sign`으로 구합니다 (README의 Row order 참고).

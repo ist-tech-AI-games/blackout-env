@@ -330,6 +330,29 @@ class MyPolicy(nn.Module):
 > **Note:** `graphic` is expected in `(B, C, H, W)` format.  
 > blackout-env automatically converts the environment output from `(B, H, W, C)`.
 
+#### Row order
+
+`forward` receives one team's 5 agents as a batch (`B = 5`), always sorted by unit number:
+
+| Team | row 0 | row 1 | row 2 | row 3 | row 4 |
+|---|---|---|---|---|---|
+| Team A | unit_0 | unit_1 | unit_2 | unit_3 | unit_4 |
+| Team B | unit_5 | unit_6 | unit_7 | unit_8 | unit_9 |
+
+The vector does not include the agent's own unit number. To find which of the 10 unit blocks is the agent itself, combine the row index with `team_sign`:
+
+```python
+def forward(self, vector, graphic):
+    rows = torch.arange(vector.shape[0], device=vector.device)
+    is_team_a = vector[0, 2] > 0                 # unit_0's team_sign: +1 if unit_0 is an ally
+    self_idx = rows if is_team_a else rows + 5   # own unit block index (0~9)
+    self_onehot = F.one_hot(self_idx, 10).float()
+    x = torch.cat([vector, self_onehot], dim=1)
+    ...
+```
+
+`env.reset()` / `env.step()` return obs dicts in the same unit order (unit_0~9), so training code that stacks `obs` in dict order gets the same row order as `run_match`.
+
 ### Step 2: Save a checkpoint
 
 ```python

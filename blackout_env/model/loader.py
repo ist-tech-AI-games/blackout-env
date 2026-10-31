@@ -22,6 +22,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 
+from ..env.constants import unit_index
 from .base import BaseModel
 
 
@@ -29,6 +30,7 @@ class CheckpointModel(BaseModel):
     """
     Wraps a loaded nn.Module as a BaseModel.
     Batches all agents' observations together for a single forward pass.
+    Rows are sorted by unit number: row i is unit_i for Team A, unit_{5+i} for Team B.
     """
 
     def __init__(self, net: nn.Module, device: torch.device):
@@ -39,7 +41,7 @@ class CheckpointModel(BaseModel):
         self,
         obs: dict[str, dict[str, np.ndarray]],
     ) -> dict[str, np.ndarray]:
-        agents = list(obs.keys())
+        agents = sorted(obs, key=unit_index)
 
         vectors = torch.tensor(
             np.stack([obs[a]["vector"] for a in agents]),
