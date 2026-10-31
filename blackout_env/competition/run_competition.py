@@ -6,6 +6,10 @@ Run a series between two submissions, each in its own container with half the GP
         --team-a submissions/team_a --team-b submissions/team_b \\
         --seeds 11 22 --out results/team_a_vs_team_b.json
 
+Add `--record videos/` to save one mp4 per match (forces time_scale 1, so each match
+takes real time). The Xvfb screen must be at least 1280x720x24:
+`xvfb-run -a -s "-screen 0 1280x720x24" python -m ...`.
+
 Each submission directory holds policy.py, checkpoint.pt and optionally meta.json
 (see policy_server.py). The Unity build runs on the host (under Xvfb); only the
 participants' code runs in the containers.
@@ -21,7 +25,8 @@ from pathlib import Path
 
 from ..env.blackout_env import BlackOutEnv
 from .container import POLICY_IMAGE, MpsDaemon, TeamContainer
-from .match import run_series
+from .match import SeriesResult, run_match
+from .recorder import ScreenRecorder
 from .remote_model import RemoteModel
 
 
@@ -42,7 +47,11 @@ def main() -> None:
     p.add_argument("--step-timeout", type=float, default=0.1)
     p.add_argument("--time-scale", type=float, default=20.0)
     p.add_argument("--worker-id", type=int, default=0)
+    p.add_argument("--record", type=Path, default=None, metavar="DIR",
+                   help="save one mp4 per match to DIR (runs at time_scale 1)")
     args = p.parse_args()
+    if args.record is not None:
+        args.time_scale = 1.0
 
     mps = None if args.no_gpu else MpsDaemon(thread_percentage=args.gpu_percent, mem_limit=args.gpu_mem)
     tag = f"{args.team_a.name}-vs-{args.team_b.name}-{args.worker_id}".lower()
@@ -51,6 +60,7 @@ def main() -> None:
         "b": TeamContainer(f"blackout-{tag}-b", args.team_b, mps, args.image, args.cpus, args.memory),
     }
     models: dict[str, RemoteModel] = {}
+    recorder = ScreenRecorder() if args.record is not None else None
     env = None
     started = time.time()
     try:
@@ -64,8 +74,24 @@ def main() -> None:
             except TimeoutError:
                 raise RuntimeError(f"team {key} failed to start:\n{t.logs()}")
 
-        env = BlackOutEnv(args.build, no_graphics=False, time_scale=args.time_scale, worker_id=args.worker_id)
-        series = run_series(env, models["a"], models["b"], n_matches=2 * len(args.seeds), seeds=args.seeds)
+        screen_args = None
+        if recorder is not None:
+            screen_args = ["-screen-width", str(recorder.width), "-screen-height", str(recorder.height),
+                           "-screen-fullscreen", "0"]
+        env = BlackOutEnv(args.build, no_graphics=False, time_scale=args.time_scale,
+                          worker_id=args.worker_id, additional_args=screen_args)
+
+        # Same order as run_series: each seed twice, sides swapped on the second match.
+        series = SeriesResult()
+        for i in range(2 * len(args.seeds)):
+            seed, swap = args.seeds[i // 2], i % 2 == 1
+            if recorder is not None:
+                recorder.start(args.record / f"{tag}-m{i + 1}-seed{seed}{'-swap' if swap else ''}.mp4")
+            try:
+                series.matches.append(run_match(env, models["a"], models["b"], swap_teams=swap, seed=seed))
+            finally:
+                if recorder is not None:
+                    recorder.stop()
 
         result = {
             "team_a": str(args.team_a),
@@ -73,6 +99,8 @@ def main() -> None:
             "seeds": args.seeds,
             "gpu": None if mps is None else {"percent": args.gpu_percent, "mem": args.gpu_mem},
             "step_timeout": args.step_timeout,
+            "time_scale": args.time_scale,
+            "videos": None if args.record is None else str(args.record),
             "wall_time_s": round(time.time() - started, 1),
             "wins": {"team_a": series.model_a_wins, "team_b": series.model_b_wins, "draws": series.draws},
             "series_winner": {0: "team_a", 1: "team_b", None: None}[series.series_winner],

@@ -101,6 +101,7 @@ class BlackOutEnv(ParallelEnv):
         base_port: int | None = None,
         no_graphics: bool = True,
         time_scale: float = 1.0,
+        additional_args: list[str] | None = None,
     ):
         """
         Parameters
@@ -124,6 +125,8 @@ class BlackOutEnv(ParallelEnv):
         time_scale : float
             Unity Time.timeScale. Values > 1 speed up simulation for faster training.
             20~100 is typical for headless builds; keep at 1 when using the Editor.
+        additional_args : list[str] | None
+            Extra command-line arguments for the Unity build (e.g. ["-screen-width", "1280"]).
         """
         if base_port is None:
             base_port = find_free_port()
@@ -166,6 +169,7 @@ class BlackOutEnv(ParallelEnv):
             base_port=base_port,
             no_graphics=no_graphics,
             side_channels=[self._seed_channel, self._engine_channel],
+            additional_args=additional_args,
         )
         self._engine_channel.set_configuration_parameters(time_scale=time_scale)
 

@@ -509,6 +509,12 @@ xvfb-run -a python -m blackout_env.competition.run_competition     --build ~/bla
 
 `--no-gpu` runs both policies on CPU without MPS. The result JSON contains per-match scores and per-team timeout/error counts.
 
+`--record videos/` saves one mp4 per match (1280x720, 30 fps). It forces `--time-scale 1`, so every match plays in real time. The Xvfb screen must be large enough and needs ffmpeg with x11grab (or `pip install imageio-ffmpeg`):
+
+```bash
+xvfb-run -a -s "-screen 0 1280x720x24" python -m blackout_env.competition.run_competition     --build ~/blackout_build/blackout_linux_build.x86_64     --team-a my_team --team-b other_team --seeds 11 --out results/a_vs_b.json --record videos/
+```
+
 ---
 
 ## Utilities
