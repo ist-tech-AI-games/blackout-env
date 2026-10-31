@@ -47,3 +47,15 @@ def test_series_plays_each_seed_from_both_sides():
     assert env.reset_seeds == [11, 11, 22, 22]
     assert [m.swap_teams for m in series.matches] == [False, True, False, True]
     assert series.model_a_wins == 4 and series.series_winner == 0
+
+
+def test_models_are_reset_before_every_match():
+    class Counting(ConstModel):
+        resets = 0
+
+        def reset(self):
+            self.resets += 1
+
+    a, b = Counting(1.0), Counting(-1.0)
+    run_series(FakeEnv(steps=2), a, b, n_matches=4, seeds=[11, 22])
+    assert a.resets == 4 and b.resets == 4

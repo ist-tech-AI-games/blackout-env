@@ -2,7 +2,7 @@ import socket
 
 import pytest
 
-from blackout_env.competition.protocol import encode_msg, recv_latest, try_parse
+from blackout_env.competition.protocol import encode_msg, recv_pending, try_parse
 
 MAX_BODY = 1 << 20
 
@@ -39,13 +39,13 @@ def test_header_must_be_an_object():
         try_parse(buf, MAX_BODY)
 
 
-def test_recv_latest_skips_stale_requests():
+def test_recv_pending_returns_queued_requests_oldest_first():
     a, b = socket.socketpair()
     try:
         for seq in (1, 2, 3):
             a.sendall(encode_msg({"seq": seq}))
-        header, _ = recv_latest(b, bytearray(), MAX_BODY)
-        assert header["seq"] == 3
+        msgs = recv_pending(b, bytearray(), MAX_BODY)
+        assert [h["seq"] for h, _ in msgs] == [1, 2, 3]
     finally:
         a.close()
         b.close()

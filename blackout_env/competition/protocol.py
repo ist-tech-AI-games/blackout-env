@@ -9,7 +9,8 @@ Message = fixed prefix (header_len: u32, body_len: u64, network byte order)
 
 Request  header: {"seq", "agents", "vector_shape": [B, N],
                   "graphic_shape": [U, H, W, C], "graphic_index": [B ints in 0..U-1],
-                  "slots": [B ints in 0..4, each agent's position within its team]}
+                  "slots": [B ints in 0..4, each agent's position within its team],
+                  "reset": true on the first request of an episode (omitted otherwise)}
          body  : vector float32[B, N] bytes + graphic uint8[U, H, W, C] bytes
                  (U distinct graphics; agents of one team share one, so usually U = 1)
 Response header: {"seq"} or {"seq", "error"}
@@ -57,13 +58,13 @@ def try_parse(buf: bytearray, max_body: int) -> tuple[dict, bytes] | None:
     return header, body
 
 
-def recv_latest(sock: socket.socket, buf: bytearray, max_body: int) -> tuple[dict, bytes]:
+def recv_pending(sock: socket.socket, buf: bytearray, max_body: int) -> list[tuple[dict, bytes]]:
     """
-    Blocking read of one message, then drop any older requests already queued behind it
-    and return the newest one. A slow policy answers the current step instead of
-    working through a backlog of stale steps.
+    Blocking read of one message, then also take every request already queued behind it.
+    Returns them oldest first. A slow policy answers only the newest (current) step instead
+    of working through a backlog of stale steps, but still sees the stale observations.
     """
-    msg = recv_msg(sock, buf, max_body)
+    msgs = [recv_msg(sock, buf, max_body)]
     sock.setblocking(False)
     try:
         while True:
@@ -77,8 +78,8 @@ def recv_latest(sock: socket.socket, buf: bytearray, max_body: int) -> tuple[dic
     finally:
         sock.setblocking(True)
     while (newer := try_parse(buf, max_body)) is not None:
-        msg = newer
-    return msg
+        msgs.append(newer)
+    return msgs
 
 
 def recv_msg(sock: socket.socket, buf: bytearray, max_body: int) -> tuple[dict, bytes]:

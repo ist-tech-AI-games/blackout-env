@@ -8,7 +8,7 @@ Submit one directory with `meta.json` and your model.
 
 ```
 my_team/
-├── meta.json      {"mode": "team"} or {"mode": "unit"}
+├── meta.json      {"mode": "team"} or {"mode": "unit"}, optionally "frame_stack": K
 └── model.onnx
 ```
 
@@ -30,7 +30,7 @@ Inputs are fed by name. A model needs only the ones it uses out of `vector`, `gr
 | `graphic` | float32 | `(B, 11, 96, 96)` |
 | `slot` | int64 | `(B,)` |
 
-Only the first output is read: float32 `(B, 2)`, `(dx, dy)` per unit. Values are clipped to `[-1, 1]` and NaN becomes 0. Nothing is kept between calls.
+The action is the first output whose name does not start with `state_out`: float32 `(B, 2)`, `(dx, dy)` per unit. Values are clipped to `[-1, 1]` and NaN becomes 0.
 
 ### Row order and slot
 
@@ -52,6 +52,35 @@ The first 90 values are 10 units × 9: position x, y (0~1), team_sign (ally +1, 
 One 0/1 mask per channel: empty, wall, ally storage, enemy storage, ally unit, enemy unit, then the 5 items (battery, speed buff, speed debuff, size buff, size debuff).
 
 The env returns `(H, W, C)`, but the model receives `(C, H, W)`. If you trained with `load_checkpoint`/`run_match`, your model already sees this order.
+
+### Stacking past frames (frame_stack)
+
+Put `"frame_stack": K` (1~16) in `meta.json` and the model gets the last K steps of observations. The server keeps a separate stack for each unit.
+
+| Name | Shape (K > 1) |
+|---|---|
+| `vector` | `(B, K, 96)` |
+| `graphic` | `(B, K, 11, 96, 96)` |
+
+Oldest frame first; `[:, -1]` is the current one. On the first step of an episode there is nothing stacked yet, so the first observation is copied into all K frames. Steps that timed out still add their observation. `slot` is not stacked.
+
+Stack the same way in training. `blackout_env.competition.onnx_policy.FrameStack` is the code the server uses, so you can import it directly.
+
+```python
+from blackout_env.competition.onnx_policy import FrameStack
+
+stack = FrameStack(4)
+stack.reset()                                   # at the start of every episode
+v, g = stack.push(slots, vector, graphic_chw)   # (N, 4, 96), (N, 4, 11, 96, 96)
+```
+
+### Recurrent state (RNN)
+
+For models that carry state between steps, like an LSTM or GRU, declare inputs starting with `state_in` paired with outputs that start with `state_out` and have the same suffix (`state_in` ↔ `state_out`, `state_in_c` ↔ `state_out_c`). Shape is float32 `(B, ...)` with fixed sizes after the batch dim.
+
+The server stores each unit's `state_out` and feeds it back as `state_in` on that unit's next step. State starts at zero every episode. In `team` mode, a unit that is dead and missing from the batch keeps its state. A step that wasn't answered does not update the state.
+
+You can use it together with `frame_stack`.
 
 ## Exporting to ONNX
 
@@ -81,6 +110,17 @@ torch.onnx.export(
 )
 ```
 
+```python
+# team, frame_stack 4 + GRU state (forward(vector, graphic, state_in) -> (action, state_out))
+torch.onnx.export(
+    model.eval(),
+    (torch.zeros(5, 4, 96), torch.zeros(5, 4, 11, 96, 96), torch.zeros(5, 64)),
+    "my_team/model.onnx",
+    input_names=["vector", "graphic", "state_in"], output_names=["action", "state_out"],
+    opset_version=17, dynamo=False,
+)
+```
+
 Export runs the model once on the example inputs and records the graph, so a Python `if` or `for` that depends on input values gets frozen to whichever path it took. Rewrite those with tensor ops like `torch.where`.
 
 ## Checking before you submit
@@ -89,7 +129,7 @@ Export runs the model once on the example inputs and records the graph, so a Pyt
 python blackout_env/competition/check_submission.py my_team/
 ```
 
-It loads the model with the same code as official matches, checks the layout, input names and shapes, and output shape, and times each step. `OK` means the format is fine. Times are from your machine, so leave some margin.
+It loads the model with the same code as official matches, checks the layout, input names and shapes, frame_stack, state input/output pairs, and output shape, and times each step. `OK` means the format is fine. Times are from your machine, so leave some margin.
 
 ## Limits
 

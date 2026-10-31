@@ -56,6 +56,7 @@ class RemoteModel(BaseModel):
         self.first_step_timeout = first_step_timeout
         self.stats = RemoteStats()
         self._seq = 0
+        self._new_episode = True
         self._buf = bytearray()
         self._sock = self._connect(socket_path, connect_timeout)
 
@@ -72,6 +73,10 @@ class RemoteModel(BaseModel):
                 if time.monotonic() > deadline:
                     raise TimeoutError(f"policy server did not open {path} within {timeout}s") from e
                 time.sleep(0.5)
+
+    def reset(self) -> None:
+        # Sent with the next request so the server clears frame stacks and states.
+        self._new_episode = True
 
     def act(self, obs: dict[str, dict[str, np.ndarray]]) -> dict[str, np.ndarray]:
         agents = sorted(obs, key=unit_index)
@@ -107,6 +112,9 @@ class RemoteModel(BaseModel):
             "graphic_index": graphic_index,
             "slots": [unit_index(a) % TEAM_SIZE for a in agents],
         }
+        if self._new_episode:
+            header["reset"] = True
+            self._new_episode = False
         timeout = self.first_step_timeout if self.stats.steps == 0 else self.step_timeout
         self.stats.steps += 1
         start = time.monotonic()

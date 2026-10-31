@@ -7,7 +7,7 @@ import time
 import numpy as np
 import pytest
 
-from blackout_env.competition.protocol import recv_latest, send_msg
+from blackout_env.competition.protocol import recv_pending, send_msg
 from blackout_env.competition.remote_model import RemoteModel
 
 pytestmark = pytest.mark.skipif(not hasattr(socket, "AF_UNIX"), reason="needs Unix sockets")
@@ -25,7 +25,7 @@ def serve(path, handler):
         buf = bytearray()
         try:
             while True:
-                header, body = recv_latest(conn, buf, 1 << 26)
+                header, body = recv_pending(conn, buf, 1 << 26)[-1]
                 if header.get("type") == "close":
                     return
                 requests.append(header)
@@ -98,3 +98,14 @@ def test_nan_is_zeroed_and_actions_clipped(tmp_path):
     actions = model.act(team_obs((0, 1)))
     model.close()
     assert actions["unit_0"].tolist() == [0.0, 1.0]
+
+
+def test_reset_flag_marks_first_request_of_each_episode(tmp_path):
+    requests = serve(tmp_path / "p.sock", echo_slots)
+    model = RemoteModel(str(tmp_path / "p.sock"))
+    model.act(team_obs())
+    model.act(team_obs())
+    model.reset()
+    model.act(team_obs())
+    model.close()
+    assert [r.get("reset", False) for r in requests] == [True, False, True]
