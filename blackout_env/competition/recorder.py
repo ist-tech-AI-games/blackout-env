@@ -20,8 +20,8 @@ def find_ffmpeg() -> str:
     try:
         import imageio_ffmpeg  # static build with x11grab, for hosts without ffmpeg
         return imageio_ffmpeg.get_ffmpeg_exe()
-    except ImportError:
-        raise RuntimeError("ffmpeg not found: install it or `pip install imageio-ffmpeg`")
+    except ImportError as e:
+        raise RuntimeError("ffmpeg not found: install it or `pip install imageio-ffmpeg`") from e
 
 
 class ScreenRecorder:

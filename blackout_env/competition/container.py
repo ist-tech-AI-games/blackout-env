@@ -22,7 +22,13 @@ POLICY_IMAGE = "blackout-policy:latest"
 
 @dataclass
 class MpsDaemon:
-    """CUDA MPS control daemon with a private pipe directory (does not touch /tmp/nvidia-mps)."""
+    """
+    CUDA MPS control daemon with a private pipe directory (does not touch /tmp/nvidia-mps).
+
+    Start one per series and stop it afterwards. After a client is killed with GPU work still
+    queued, the MPS server takes a few seconds to clean up, and a new client that connects
+    to the same daemon in that window can hang while loading.
+    """
 
     thread_percentage: int = 50
     mem_limit: str = "11G"

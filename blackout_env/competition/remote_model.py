@@ -14,7 +14,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from ..env.constants import N_TEAM_A as TEAM_SIZE, unit_index
+from ..env.constants import TEAM_SIZE, unit_index
 from ..model.base import BaseModel
 from .protocol import encode_msg, try_parse
 
@@ -67,10 +67,10 @@ class RemoteModel(BaseModel):
                 s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
                 s.connect(path)
                 return s
-            except (FileNotFoundError, ConnectionRefusedError):
+            except (FileNotFoundError, ConnectionRefusedError) as e:
                 s.close()
                 if time.monotonic() > deadline:
-                    raise TimeoutError(f"policy server did not open {path} within {timeout}s")
+                    raise TimeoutError(f"policy server did not open {path} within {timeout}s") from e
                 time.sleep(0.5)
 
     def act(self, obs: dict[str, dict[str, np.ndarray]]) -> dict[str, np.ndarray]:
@@ -157,7 +157,7 @@ class RemoteModel(BaseModel):
             self._sock.settimeout(remaining)
             try:
                 chunk = self._sock.recv(1 << 16)
-            except socket.timeout:
+            except TimeoutError:
                 return None
             if not chunk:
                 raise ConnectionError("policy server closed the connection")
