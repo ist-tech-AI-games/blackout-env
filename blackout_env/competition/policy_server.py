@@ -21,7 +21,7 @@ from pathlib import Path
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from onnx_policy import OnnxPolicy  # noqa: E402
+from onnx_policy import Policy, load_policy  # noqa: E402
 from protocol import recv_latest, send_msg  # noqa: E402
 
 MAX_REQUEST_BYTES = 64 << 20
@@ -31,7 +31,7 @@ def log(msg: str) -> None:
     print(f"[policy_server] {msg}", flush=True)
 
 
-def serve(policy: OnnxPolicy, sock_path: Path) -> None:
+def serve(policy: Policy, sock_path: Path) -> None:
     if sock_path.exists():
         sock_path.unlink()
     server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
@@ -78,12 +78,12 @@ def main() -> None:
     log(f"mps_thread_pct={os.environ.get('CUDA_MPS_ACTIVE_THREAD_PERCENTAGE')}, "
         f"mps_mem_limit={os.environ.get('CUDA_MPS_PINNED_DEVICE_MEM_LIMIT')}")
     try:
-        policy = OnnxPolicy(Path(args.submission))
+        policy = load_policy(Path(args.submission))
         policy.warm_up()
     except Exception:
         traceback.print_exc()
         sys.exit(2)
-    log(f"loaded {policy.mode} mode, {len(set(map(id, policy.sessions)))} model(s), providers={policy.providers}")
+    log(f"loaded {policy.mode} mode, {policy.n_models} model(s), providers={policy.providers}")
     serve(policy, Path(args.socket))
 
 
