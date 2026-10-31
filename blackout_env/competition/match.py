@@ -8,6 +8,7 @@ Supports single match and best-of-N series with team swapping for fairness.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Callable
 
 import numpy as np
 
@@ -67,6 +68,7 @@ def run_match(
     model_b: BaseModel,
     swap_teams: bool = False,
     seed: int | None = None,
+    on_step: Callable[[dict[str, np.ndarray]], None] | None = None,
 ) -> MatchResult:
     """
     Run a single episode between two models.
@@ -84,6 +86,8 @@ def run_match(
         Useful for fairness in a series — swaps starting sides between matches.
     seed : int | None
         Map/item seed passed to env.reset(). None = random.
+    on_step : callable | None
+        Called with each step's actions before they are sent (e.g. replay.ReplayLog.add).
 
     Returns
     -------
@@ -121,6 +125,8 @@ def run_match(
             actions.update(model_a.act(model_a_obs))
         if model_b_obs:
             actions.update(model_b.act(model_b_obs))
+        if on_step is not None:
+            on_step(actions)
 
         obs, rewards, terminations, _, infos = env.step(actions)
         if infos:
