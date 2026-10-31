@@ -84,10 +84,18 @@ class RemoteModel(BaseModel):
             return zeros
 
         vector = np.stack([obs[a]["vector"] for a in agents]).astype(np.float32)
-        # graphic channels are one-hot masks: send the id map (H×W) instead of H×W×C floats
-        graphic = np.stack([obs[a]["graphic"] for a in agents])
-        ids = graphic.argmax(axis=-1).astype(np.uint8)
-        ids[graphic.max(axis=-1) < 0.5] = 255
+        # Agents of one team share the same graphic array: send each distinct array once
+        # (as uint8, the channels are 0/1 masks) plus a per-agent index into them.
+        unique: dict[int, int] = {}
+        graphics = []
+        graphic_index = []
+        for a in agents:
+            g = obs[a]["graphic"]
+            if id(g) not in unique:
+                unique[id(g)] = len(graphics)
+                graphics.append(g)
+            graphic_index.append(unique[id(g)])
+        graphic = np.stack(graphics).astype(np.uint8)
 
         self._seq += 1
         seq = self._seq
@@ -96,6 +104,7 @@ class RemoteModel(BaseModel):
             "agents": agents,
             "vector_shape": list(vector.shape),
             "graphic_shape": list(graphic.shape),
+            "graphic_index": graphic_index,
         }
         timeout = self.first_step_timeout if self.stats.steps == 0 else self.step_timeout
         self.stats.steps += 1
@@ -105,7 +114,7 @@ class RemoteModel(BaseModel):
             # A partial send would corrupt the stream, so sending gets its own generous
             # timeout; if it still fails the connection is treated as dead.
             self._sock.settimeout(self.send_timeout)
-            self._sock.sendall(encode_msg(header, vector.tobytes() + ids.tobytes()))
+            self._sock.sendall(encode_msg(header, vector.tobytes() + graphic.tobytes()))
             resp = self._wait_for(seq, start + timeout)
         except (OSError, ValueError) as e:
             self._broken = True

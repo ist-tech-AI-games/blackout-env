@@ -7,9 +7,10 @@ without installing blackout-env (and its mlagents-envs dependency).
 Message = fixed prefix (header_len: u32, body_len: u64, network byte order)
           + JSON header + raw body bytes.
 
-Request  header: {"seq", "agents", "vector_shape": [B, N], "graphic_shape": [B, H, W, C]}
-         body  : vector float32[B, N] bytes + semantic id map uint8[B, H, W] bytes
-                 (graphic channels are one-hot, so the id map is lossless; 255 = no channel)
+Request  header: {"seq", "agents", "vector_shape": [B, N],
+                  "graphic_shape": [U, H, W, C], "graphic_index": [B ints in 0..U-1]}
+         body  : vector float32[B, N] bytes + graphic uint8[U, H, W, C] bytes
+                 (U distinct graphics; agents of one team share one, so usually U = 1)
 Response header: {"seq"} or {"seq", "error"}
          body  : action float32[B, 2] bytes (empty on error)
 """

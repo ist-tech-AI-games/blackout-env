@@ -102,11 +102,12 @@ def serve(net, device, sock_path: Path) -> None:
                     g_shape = tuple(header["graphic_shape"])
                     v_bytes = b * n * 4
                     vector = np.frombuffer(body[:v_bytes], dtype=np.float32).reshape(b, n)
-                    ids = np.frombuffer(body[v_bytes:], dtype=np.uint8).reshape(g_shape[:3])
-                    graphic = ids[..., None] == np.arange(g_shape[3], dtype=np.uint8)
+                    graphic = np.frombuffer(body[v_bytes:], dtype=np.uint8).reshape(g_shape)
+                    index = torch.as_tensor(header["graphic_index"], dtype=torch.long)
                     with torch.no_grad():
                         v = torch.from_numpy(vector.copy()).to(device)
-                        g = torch.from_numpy(graphic).to(device).float().permute(0, 3, 1, 2)
+                        g = torch.from_numpy(graphic.copy()).to(device)[index.to(device)]
+                        g = g.float().permute(0, 3, 1, 2)
                         out = net(v, g)
                     action = out.detach().float().clamp(-1, 1).cpu().numpy().astype(np.float32)
                     if action.shape != (b, 2):
