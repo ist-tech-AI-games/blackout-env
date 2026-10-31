@@ -4,6 +4,13 @@ BaseModel that forwards observations to a team's policy container over a Unix so
 Each step has a deadline. If the container does not answer in time, answers with an
 error, or sends a malformed response, the team's agents stand still (0, 0) for that
 step and the failure is counted. Late responses are discarded by sequence number.
+
+If the connection is lost (e.g. the server process crashed and the container is restarting
+it), the step is held: the model waits up to reconnect_timeout for the server to come back
+and sends the same request again, so the match does not move on while a team is down.
+After max_reconnects such waits, or if the server does not come back in time, the agents
+stand still and the model only retries the connection every RECONNECT_INTERVAL seconds.
+A restarted server process starts with empty frame stacks and zero states.
 """
 
 from __future__ import annotations
@@ -19,6 +26,7 @@ from ..model.base import BaseModel
 from .protocol import encode_msg, try_parse
 
 MAX_RESPONSE_BYTES = 1 << 16
+RECONNECT_INTERVAL = 0.5
 
 
 @dataclass
@@ -27,6 +35,7 @@ class RemoteStats:
     timeouts: int = 0
     errors: int = 0
     last_error: str | None = None
+    reconnects: int = 0
     max_latency_ms: float = 0.0
 
 
@@ -40,6 +49,10 @@ class RemoteModel(BaseModel):
         Seconds allowed per act() call.
     first_step_timeout : float
         Seconds allowed for the first call (the server already ran one warm-up call).
+    reconnect_timeout : float
+        Seconds to hold a step while waiting for a lost server to come back.
+    max_reconnects : int
+        How many times the step may be held over the model's lifetime (one series).
     """
 
     def __init__(
@@ -49,7 +62,11 @@ class RemoteModel(BaseModel):
         first_step_timeout: float = 30.0,
         connect_timeout: float = 120.0,
         send_timeout: float = 5.0,
+        reconnect_timeout: float = 60.0,
+        max_reconnects: int = 5,
     ):
+        self.reconnect_timeout = reconnect_timeout
+        self.max_reconnects = max_reconnects
         self.step_timeout = step_timeout
         self.send_timeout = send_timeout
         self._broken = False
@@ -58,6 +75,8 @@ class RemoteModel(BaseModel):
         self._seq = 0
         self._new_episode = True
         self._buf = bytearray()
+        self._path = socket_path
+        self._next_reconnect = 0.0
         self._sock = self._connect(socket_path, connect_timeout)
 
     @staticmethod
@@ -83,7 +102,7 @@ class RemoteModel(BaseModel):
         zeros = {a: np.zeros(2, dtype=np.float32) for a in agents}
         if not agents:
             return zeros
-        if self._broken:
+        if self._broken and not self._reconnect():
             self.stats.steps += 1
             self.stats.errors += 1
             return zeros
@@ -119,23 +138,24 @@ class RemoteModel(BaseModel):
         self.stats.steps += 1
         start = time.monotonic()
 
+        msg = encode_msg(header, vector.tobytes() + graphic.tobytes())
+        held = False
         try:
-            # A partial send would corrupt the stream, so sending gets its own generous
-            # timeout; if it still fails the connection is treated as dead.
-            self._sock.settimeout(self.send_timeout)
-            self._sock.sendall(encode_msg(header, vector.tobytes() + graphic.tobytes()))
-            resp = self._wait_for(seq, start + timeout)
+            resp = self._send_and_wait(msg, seq, start + timeout)
         except (OSError, ValueError) as e:
-            self._broken = True
-            self.stats.errors += 1
             self.stats.last_error = f"connection lost: {type(e).__name__}: {e}"
-            return zeros
+            held = True
+            resp = self._retry_after_reconnect(msg, seq)
+            if resp is False:
+                self._broken = True
+                self.stats.errors += 1
+                return zeros
 
         if resp is None:
             self.stats.timeouts += 1
             return zeros
 
-        if self.stats.steps > 1:  # first step may include remaining warm-up
+        if self.stats.steps > 1 and not held:  # first step may include remaining warm-up
             self.stats.max_latency_ms = max(self.stats.max_latency_ms, (time.monotonic() - start) * 1000)
         resp_header, body = resp
         if "error" in resp_header:
@@ -150,6 +170,48 @@ class RemoteModel(BaseModel):
         actions = np.frombuffer(body, dtype=np.float32).reshape(len(agents), 2)
         actions = np.clip(np.nan_to_num(actions, nan=0.0, posinf=1.0, neginf=-1.0), -1.0, 1.0)
         return {a: actions[i].copy() for i, a in enumerate(agents)}
+
+    def _send_and_wait(self, msg: bytes, seq: int, deadline: float) -> tuple[dict, bytes] | None:
+        # A partial send would corrupt the stream, so sending gets its own generous
+        # timeout; if it still fails the connection is treated as dead.
+        self._sock.settimeout(self.send_timeout)
+        self._sock.sendall(msg)
+        return self._wait_for(seq, deadline)
+
+    def _retry_after_reconnect(self, msg: bytes, seq: int) -> tuple[dict, bytes] | None | bool:
+        """Hold the step until the server is back, then resend. False if it did not come back."""
+        if self.stats.reconnects >= self.max_reconnects:
+            return False
+        deadline = time.monotonic() + self.reconnect_timeout
+        while not self._reconnect(wait=True):
+            if time.monotonic() > deadline:
+                return False
+            time.sleep(0.2)
+        try:
+            return self._send_and_wait(msg, seq, time.monotonic() + self.first_step_timeout)
+        except (OSError, ValueError) as e:
+            self.stats.last_error = f"connection lost again: {type(e).__name__}: {e}"
+            return False
+
+    def _reconnect(self, wait: bool = False) -> bool:
+        """One connection attempt; without wait, at most every RECONNECT_INTERVAL seconds."""
+        now = time.monotonic()
+        if not wait and now < self._next_reconnect:
+            return False
+        self._next_reconnect = now + RECONNECT_INTERVAL
+        s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        try:
+            s.settimeout(RECONNECT_INTERVAL)
+            s.connect(self._path)
+        except OSError:
+            s.close()
+            return False
+        self._sock.close()
+        self._sock = s
+        self._buf = bytearray()
+        self._broken = False
+        self.stats.reconnects += 1
+        return True
 
     def _wait_for(self, seq: int, deadline: float) -> tuple[dict, bytes] | None:
         """Read until the response for seq arrives; drop stale ones. None on timeout."""

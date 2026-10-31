@@ -139,6 +139,8 @@ Each team has 100 ms per step (in `unit` mode, the 5 calls together, including t
 
 If a team runs out of time or hits a runtime error, all its units stand still for that step. If the model can't be loaded at all, the match doesn't start. Timeouts and errors are counted in the result file.
 
+If onnxruntime crashes the whole process mid-match, the container restarts the server and the match pauses until it is back (up to 60 s, at most 5 times per series). The restarted server starts with empty frame stacks and zero states. After that, the team stands still until the server comes back. Container logs are saved next to the result file as `<result name>.team_a.log` and `.team_b.log`.
+
 ## Match rules
 
 **Winner.** Each match is decided by the final game score: whoever reaches the target score first, or has more points when time runs out. Rewards from the env are for training only and don't count.

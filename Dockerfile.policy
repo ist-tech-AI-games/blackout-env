@@ -20,4 +20,5 @@ RUN pip install --no-cache-dir "numpy>=1.23.5,<2" "onnxruntime-gpu==1.22.0"
 COPY blackout_env/competition/protocol.py blackout_env/competition/onnx_policy.py \
      blackout_env/competition/policy_server.py /app/
 
-ENTRYPOINT ["python3", "/app/policy_server.py"]
+COPY docker/policy_entrypoint.sh /app/
+ENTRYPOINT ["sh", "/app/policy_entrypoint.sh"]

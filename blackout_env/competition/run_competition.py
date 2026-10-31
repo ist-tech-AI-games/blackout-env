@@ -77,7 +77,10 @@ def team_models(args: argparse.Namespace, tag: str) -> Iterator[dict[str, Remote
     finally:
         for m in models.values():
             m.close()
-        for t in teams.values():
+        # Keep each container's log next to the result file (load errors, dropped connections).
+        args.out.parent.mkdir(parents=True, exist_ok=True)
+        for key, t in teams.items():
+            args.out.with_name(f"{args.out.stem}.team_{key}.log").write_text(t.logs(tail=500))
             t.cleanup()
         if mps is not None:
             mps.stop()
