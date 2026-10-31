@@ -101,6 +101,7 @@ class BlackOutEnv(ParallelEnv):
         base_port: int | None = None,
         no_graphics: bool = True,
         time_scale: float = 1.0,
+        additional_args: list[str] | None = None,
     ):
         """
         Parameters
@@ -124,6 +125,8 @@ class BlackOutEnv(ParallelEnv):
         time_scale : float
             Unity Time.timeScale. Values > 1 speed up simulation for faster training.
             20~100 is typical for headless builds; keep at 1 when using the Editor.
+        additional_args : list[str] | None
+            Extra command-line arguments for the Unity build (e.g. ["-screen-width", "1280"]).
         """
         if base_port is None:
             base_port = find_free_port()
@@ -166,6 +169,7 @@ class BlackOutEnv(ParallelEnv):
             base_port=base_port,
             no_graphics=no_graphics,
             side_channels=[self._seed_channel, self._engine_channel],
+            additional_args=additional_args,
         )
         self._engine_channel.set_configuration_parameters(time_scale=time_scale)
 
@@ -264,6 +268,7 @@ class BlackOutEnv(ParallelEnv):
         rewards: dict[str, float] = {a: 0.0 for a in self.agents}
         terminations: dict[str, bool] = {a: False for a in self.agents}
         scalars_captured = False
+        terminal_scalars_captured = False
 
         self._collect_map_obs()
 
@@ -290,9 +295,11 @@ class BlackOutEnv(ParallelEnv):
                 r = float(terminal_steps[agent_id].reward)
                 rewards[aname] = r
                 terminations[aname] = True
-                if not scalars_captured:
+                # Terminal obs carry the final score; prefer them over decision steps of
+                # the next episode that can arrive in the same step (score reset to 0).
+                if not terminal_scalars_captured:
                     self._latest_scalars = self._extract_scalars(aname, raw_vector)
-                    scalars_captured = True
+                    scalars_captured = terminal_scalars_captured = True
 
                 # Derive winner from the first terminal agent's reward.
                 # unit 0~4 = Team A, 5~9 = Team B. Winner gets +1, loser -1, draw 0.

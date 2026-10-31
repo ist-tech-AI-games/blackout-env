@@ -23,6 +23,7 @@ For full game rules see [docs/gameplay_en.md](docs/gameplay_en.md) / [docs/gamep
   - [Step 3: Run a match](#step-3-run-a-match)
   - [Different architectures per team](#different-architectures-per-team)
   - [Implementing BaseModel directly (optional)](#implementing-basemodel-directly-optional)
+  - [Official evaluation](#official-evaluation)
 - [Utilities](#utilities)
 
 ---
@@ -234,10 +235,9 @@ Effects are active as long as the **item** sits in storage. Removing or stealing
 
 ## Competition
 
-Each participant submits two files:
+Official matches take an ONNX model per team. The format, inputs and limits are in [docs/competition_en.md](docs/competition_en.md) ([한국어](docs/competition_ko.md)).
 
-1. **`policy.py`** — `nn.Module` implementation (model architecture)
-2. **`checkpoint.pt`** — trained weights
+The tools below (`load_checkpoint`, `run_match`, `run_series`) are for training and local testing with PyTorch.
 
 ### Observation
 
@@ -463,6 +463,14 @@ class MyModel(BaseModel):
 
 > `load_checkpoint` implements this pattern internally via `CheckpointModel`.  
 > Only subclass `BaseModel` directly if you need custom preprocessing or ensembling.
+
+### Official evaluation
+
+Export your model to ONNX and submit a directory with `meta.json` and `model.onnx` (or `unit_0~4.onnx`). See [docs/competition_en.md](docs/competition_en.md) for the input/output spec, the two control modes, limits and how to run official-style matches yourself.
+
+```bash
+python blackout_env/competition/check_submission.py my_team/   # validate before submitting
+```
 
 ---
 
