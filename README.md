@@ -235,10 +235,9 @@ Effects are active as long as the **item** sits in storage. Removing or stealing
 
 ## Competition
 
-Each participant submits two files:
+Official matches take an ONNX model per team. The format, inputs and limits are in [docs/competition_en.md](docs/competition_en.md) ([한국어](docs/competition_ko.md)).
 
-1. **`policy.py`** — `nn.Module` implementation (model architecture)
-2. **`checkpoint.pt`** — trained weights
+The tools below (`load_checkpoint`, `run_match`, `run_series`) are for training and local testing with PyTorch.
 
 ### Observation
 
@@ -467,52 +466,10 @@ class MyModel(BaseModel):
 
 ### Official evaluation
 
-Official matches run each team's policy in its own container. Submit a directory with:
-
-```
-my_team/
-├── policy.py       # exactly one nn.Module subclass (or set class_name in meta.json)
-├── checkpoint.pt   # {"policy_state": state_dict} or a raw state dict
-└── meta.json       # optional
-```
-
-```json
-{"class_name": "MyPolicy", "kwargs": {"vector_size": 96, "n_channels": 11}, "state_dict_key": "policy_state"}
-```
-
-`forward(vector, graphic)` is called once per step with your 5 agents as a batch (see [Row order](#row-order)).
-Custom `BaseModel` subclasses are not used in official matches.
-
-**Limits per team**
-
-| Resource | Limit |
-|---|---|
-| GPU | 50% of SMs and 11 GB memory on a shared RTX 3090 (CUDA MPS, enforced by the server, not overridable from the container) |
-| CPU / RAM | 4 cores / 16 GB |
-| Time per step | 100 ms (first step: 30 s for warm-up) |
-| Network | none |
-| Filesystem | read-only except `/tmp` (1 GB) |
-| Packages | Python 3.10, PyTorch (CUDA 12.4), NumPy only |
-
-If your policy misses the time limit, raises an exception, or returns a wrong shape, your agents stand still `(0, 0)` for that step. NaN/inf outputs are replaced with 0 and actions are clipped to `[-1, 1]`.
-
-**Winner**
-
-The winner of each match is decided by the final game score (first to the target score, or the higher score when time runs out). Rewards returned by the environment are for training only and do not affect the result. Each seed is played twice with sides swapped.
-
-**Running it yourself (Linux + NVIDIA GPU + Docker)**
+Export your model to ONNX and submit a directory with `meta.json` and `model.onnx` (or `unit_0~4.onnx`). See [docs/competition_en.md](docs/competition_en.md) for the input/output spec, the two control modes, limits and how to run official-style matches yourself.
 
 ```bash
-docker build -f Dockerfile.policy -t blackout-policy:latest .
-xvfb-run -a python -m blackout_env.competition.run_competition     --build ~/blackout_build/blackout_linux_build.x86_64     --team-a my_team --team-b other_team     --seeds 11 22 --out results/my_team_vs_other_team.json
-```
-
-`--no-gpu` runs both policies on CPU without MPS. The result JSON contains per-match scores and per-team timeout/error counts.
-
-`--record videos/` saves one mp4 per match (1280x720, 30 fps). It forces `--time-scale 1`, so every match plays in real time. The Xvfb screen must be large enough and needs ffmpeg with x11grab (or `pip install imageio-ffmpeg`):
-
-```bash
-xvfb-run -a -s "-screen 0 1280x720x24" python -m blackout_env.competition.run_competition     --build ~/blackout_build/blackout_linux_build.x86_64     --team-a my_team --team-b other_team --seeds 11 --out results/a_vs_b.json --record videos/
+python blackout_env/competition/check_submission.py my_team/   # validate before submitting
 ```
 
 ---

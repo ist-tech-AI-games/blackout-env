@@ -14,7 +14,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from ..env.constants import unit_index
+from ..env.constants import N_TEAM_A as TEAM_SIZE, unit_index
 from ..model.base import BaseModel
 from .protocol import encode_msg, try_parse
 
@@ -39,7 +39,7 @@ class RemoteModel(BaseModel):
     step_timeout : float
         Seconds allowed per act() call.
     first_step_timeout : float
-        Seconds allowed for the first call (CUDA warm-up, cudnn autotune, ...).
+        Seconds allowed for the first call (the server already ran one warm-up call).
     """
 
     def __init__(
@@ -105,6 +105,7 @@ class RemoteModel(BaseModel):
             "vector_shape": list(vector.shape),
             "graphic_shape": list(graphic.shape),
             "graphic_index": graphic_index,
+            "slots": [unit_index(a) % TEAM_SIZE for a in agents],
         }
         timeout = self.first_step_timeout if self.stats.steps == 0 else self.step_timeout
         self.stats.steps += 1
@@ -126,7 +127,7 @@ class RemoteModel(BaseModel):
             self.stats.timeouts += 1
             return zeros
 
-        if self.stats.steps > 1:  # first step includes CUDA warm-up
+        if self.stats.steps > 1:  # first step may include remaining warm-up
             self.stats.max_latency_ms = max(self.stats.max_latency_ms, (time.monotonic() - start) * 1000)
         resp_header, body = resp
         if "error" in resp_header:

@@ -1,5 +1,5 @@
 # Policy container for one competition team.
-# Runs only the team's policy.py + checkpoint.pt; no network, no Unity, no blackout-env install.
+# Runs only the team's ONNX model(s) with onnxruntime; no participant code, no network, no Unity.
 #
 #   docker build -f Dockerfile.policy -t blackout-policy:latest .
 
@@ -15,9 +15,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-pip \
     && rm -rf /var/lib/apt/lists/*
 
-RUN pip install --no-cache-dir "numpy>=1.23.5" \
- && pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cu124
+RUN pip install --no-cache-dir "numpy>=1.23.5,<2" "onnxruntime-gpu==1.22.0"
 
-COPY blackout_env/competition/protocol.py blackout_env/competition/policy_server.py /app/
+COPY blackout_env/competition/protocol.py blackout_env/competition/onnx_policy.py \
+     blackout_env/competition/policy_server.py /app/
 
 ENTRYPOINT ["python3", "/app/policy_server.py"]

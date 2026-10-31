@@ -3,8 +3,8 @@ Docker / CUDA MPS helpers for running each team's policy in its own container.
 
 GPU split: on GPUs without MIG (e.g. RTX 3090) the only hard limit is CUDA MPS.
 The MPS control daemon is started with server-wide defaults (SM percentage and pinned
-memory per client). Submission code runs inside the container and can change its own
-environment, so the limits are set on the daemon, not only through client env vars.
+memory per client). Client env vars can be changed from inside the container, so the
+limits are set on the daemon, not only through client env vars.
 """
 
 from __future__ import annotations
@@ -85,7 +85,7 @@ class TeamContainer:
         self.stop()
         os.chmod(self.sock_dir, 0o777)
         cmd = [
-            "docker", "run", "-d", "--rm",
+            "docker", "run", "-d",  # no --rm: keep logs if the server exits at load time
             "--name", self.name,
             "--network", "none",
             "--read-only", "--tmpfs", "/tmp:rw,size=1g",
@@ -108,6 +108,16 @@ class TeamContainer:
             ]
         cmd.append(self.image)
         subprocess.run(cmd, check=True, capture_output=True, text=True)
+
+    def wait_ready(self, timeout: float = 120.0) -> None:
+        """Wait until the server opens its socket (model loaded and warmed up)."""
+        deadline = time.monotonic() + timeout
+        while not self.socket_path.exists():
+            if not self.is_running():
+                raise RuntimeError(f"{self.name} exited while loading the submission:\n{self.logs()}")
+            if time.monotonic() > deadline:
+                raise RuntimeError(f"{self.name} did not become ready in {timeout:.0f}s:\n{self.logs()}")
+            time.sleep(0.2)
 
     def is_running(self) -> bool:
         r = subprocess.run(
