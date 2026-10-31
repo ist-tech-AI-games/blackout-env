@@ -48,12 +48,14 @@ def default_providers() -> list[str]:
 def _check_dims(name: str, declared: list, expected: tuple) -> None:
     if len(declared) != len(expected):
         raise SubmissionError(f"input {name!r} has rank {len(declared)}, expected shape {expected}")
-    for d, e in zip(declared, expected):
+    for d, e in zip(declared, expected, strict=True):
         if isinstance(d, int) and d != e:  # symbolic (str/None) dims accept any size
             raise SubmissionError(f"input {name!r} has shape {declared}, expected {expected}")
 
 
 class _Session:
+    """One .onnx file, checked against the input spec for a given batch size."""
+
     def __init__(self, path: Path, batch: int, providers: list[str]):
         import onnxruntime as ort
 
@@ -62,7 +64,7 @@ class _Session:
         try:
             self.sess = ort.InferenceSession(str(path), sess_options=opts, providers=providers)
         except Exception as e:
-            raise SubmissionError(f"{path.name}: cannot load ({type(e).__name__}: {e})")
+            raise SubmissionError(f"{path.name}: cannot load ({type(e).__name__}: {e})") from e
 
         inputs = {i.name: i for i in self.sess.get_inputs()}
         unknown = set(inputs) - set(KNOWN_INPUTS)
@@ -75,7 +77,6 @@ class _Session:
                 raise SubmissionError(f"{path.name}: input {name!r} is {inp.type}, expected {INPUT_DTYPES[name]}")
             _check_dims(name, inp.shape, expected[name])
         self.inputs = set(inputs)
-        self.use_slot = "slot" in inputs
         self.output = self.sess.get_outputs()[0].name
         self.batch = batch
         self.name = path.name
@@ -88,55 +89,93 @@ class _Session:
         return out.astype(np.float32, copy=False)
 
 
-class OnnxPolicy:
-    def __init__(self, submission: Path, providers: list[str] | None = None):
-        providers = providers or default_providers()
-        meta_path = submission / "meta.json"
-        if not meta_path.exists():
-            raise SubmissionError('meta.json is missing (expected {"mode": "team"} or {"mode": "unit"})')
-        try:
-            meta = json.loads(meta_path.read_text())
-        except json.JSONDecodeError as e:
-            raise SubmissionError(f"meta.json is not valid JSON: {e}")
-        self.mode = meta.get("mode")
-        if self.mode not in ("team", "unit"):
-            raise SubmissionError(f'meta.json "mode" must be "team" or "unit", got {self.mode!r}')
+class Policy:
+    """
+    A loaded submission. act() takes one team's rows in slot order:
+    vector (N, 96) float32, graphic (N, 11, 96, 96) float32, slots (N,) int64 in 0~4,
+    and returns (N, 2) float32.
+    """
 
-        shared = submission / "model.onnx"
-        per_unit = [submission / f"unit_{i}.onnx" for i in range(TEAM_SIZE)]
-        if self.mode == "team":
-            if not shared.exists():
-                raise SubmissionError("team mode needs model.onnx")
-            self.sessions = [_Session(shared, TEAM_SIZE, providers)]
-        elif shared.exists():
-            self.sessions = [_Session(shared, 1, providers)] * TEAM_SIZE
-        else:
-            missing = [p.name for p in per_unit if not p.exists()]
-            if missing:
-                raise SubmissionError(f"unit mode needs model.onnx or all of unit_0~4.onnx (missing {missing})")
-            self.sessions = [_Session(p, 1, providers) for p in per_unit]
-        self.providers = self.sessions[0].sess.get_providers()
+    mode: str
+    sessions: list[_Session]
+
+    @property
+    def providers(self) -> list[str]:
+        return self.sessions[0].sess.get_providers()
+
+    @property
+    def n_models(self) -> int:
+        return len({id(s) for s in self.sessions})
+
+    @property
+    def inputs(self) -> set[str]:
+        return set().union(*(s.inputs for s in self.sessions))
 
     def act(self, vector: np.ndarray, graphic: np.ndarray, slots: np.ndarray) -> np.ndarray:
-        """
-        vector (N, 96) float32, graphic (N, 11, 96, 96) float32, slots (N,) int64 in 0~4,
-        rows in slot order. Returns (N, 2) float32.
-        """
-        n = len(slots)
-        if self.mode == "team":
-            if n == TEAM_SIZE:
-                return self.sessions[0].run(vector, graphic, slots)
-            # Fewer units than the model's batch: pad the missing slots with zeros.
-            v = np.zeros((TEAM_SIZE, VECTOR_SIZE), np.float32)
-            g = np.zeros((TEAM_SIZE, *GRAPHIC_SHAPE), np.float32)
-            v[slots], g[slots] = vector, graphic
-            return self.sessions[0].run(v, g, np.arange(TEAM_SIZE, dtype=np.int64))[slots]
-        out = np.empty((n, 2), np.float32)
-        for row, s in enumerate(slots):
-            out[row] = self.sessions[s].run(vector[row:row + 1], graphic[row:row + 1], slots[row:row + 1])[0]
-        return out
+        raise NotImplementedError
 
     def warm_up(self) -> None:
         self.act(np.zeros((TEAM_SIZE, VECTOR_SIZE), np.float32),
                  np.zeros((TEAM_SIZE, *GRAPHIC_SHAPE), np.float32),
                  np.arange(TEAM_SIZE, dtype=np.int64))
+
+
+class TeamPolicy(Policy):
+    """One model, called once per step with the whole team as a batch of 5."""
+
+    mode = "team"
+
+    def __init__(self, submission: Path, providers: list[str]):
+        model = submission / "model.onnx"
+        if not model.exists():
+            raise SubmissionError("team mode needs model.onnx")
+        self.sessions = [_Session(model, TEAM_SIZE, providers)]
+
+    def act(self, vector: np.ndarray, graphic: np.ndarray, slots: np.ndarray) -> np.ndarray:
+        if len(slots) == TEAM_SIZE:
+            return self.sessions[0].run(vector, graphic, slots)
+        # Fewer units than the model's batch: pad the missing slots with zeros.
+        v = np.zeros((TEAM_SIZE, VECTOR_SIZE), np.float32)
+        g = np.zeros((TEAM_SIZE, *GRAPHIC_SHAPE), np.float32)
+        v[slots], g[slots] = vector, graphic
+        return self.sessions[0].run(v, g, np.arange(TEAM_SIZE, dtype=np.int64))[slots]
+
+
+class UnitPolicy(Policy):
+    """One call per unit with batch 1; a shared model.onnx, or unit_0~4.onnx picked by slot."""
+
+    mode = "unit"
+
+    def __init__(self, submission: Path, providers: list[str]):
+        shared = submission / "model.onnx"
+        if shared.exists():
+            self.sessions = [_Session(shared, 1, providers)] * TEAM_SIZE
+            return
+        per_unit = [submission / f"unit_{i}.onnx" for i in range(TEAM_SIZE)]
+        missing = [p.name for p in per_unit if not p.exists()]
+        if missing:
+            raise SubmissionError(f"unit mode needs model.onnx or all of unit_0~4.onnx (missing {missing})")
+        self.sessions = [_Session(p, 1, providers) for p in per_unit]
+
+    def act(self, vector: np.ndarray, graphic: np.ndarray, slots: np.ndarray) -> np.ndarray:
+        out = np.empty((len(slots), 2), np.float32)
+        for row, s in enumerate(slots):
+            out[row] = self.sessions[s].run(vector[row:row + 1], graphic[row:row + 1], slots[row:row + 1])[0]
+        return out
+
+
+POLICY_MODES: dict[str, type[Policy]] = {"team": TeamPolicy, "unit": UnitPolicy}
+
+
+def load_policy(submission: Path, providers: list[str] | None = None) -> Policy:
+    meta_path = submission / "meta.json"
+    if not meta_path.exists():
+        raise SubmissionError('meta.json is missing (expected {"mode": "team"} or {"mode": "unit"})')
+    try:
+        meta = json.loads(meta_path.read_text())
+    except json.JSONDecodeError as e:
+        raise SubmissionError(f"meta.json is not valid JSON: {e}") from e
+    mode = meta.get("mode") if isinstance(meta, dict) else None
+    if mode not in POLICY_MODES:
+        raise SubmissionError(f'meta.json "mode" must be one of {list(POLICY_MODES)}, got {mode!r}')
+    return POLICY_MODES[mode](submission, providers or default_providers())

@@ -18,8 +18,10 @@ from pathlib import Path
 
 import numpy as np
 
+# Import onnx_policy as a sibling file, not through the blackout_env package: the package
+# pulls in mlagents-envs, whose old protobuf pin breaks the onnx export environment.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from onnx_policy import GRAPHIC_SHAPE, TEAM_SIZE, VECTOR_SIZE, OnnxPolicy, SubmissionError  # noqa: E402
+from onnx_policy import GRAPHIC_SHAPE, TEAM_SIZE, VECTOR_SIZE, SubmissionError, load_policy  # noqa: E402
 
 STEP_LIMIT_MS = 100.0
 
@@ -32,13 +34,12 @@ def main() -> None:
     args = p.parse_args()
 
     try:
-        policy = OnnxPolicy(args.submission, ["CPUExecutionProvider"] if args.cpu else None)
+        policy = load_policy(args.submission, ["CPUExecutionProvider"] if args.cpu else None)
         policy.warm_up()
     except SubmissionError as e:
         sys.exit(f"FAIL: {e}")
-    n_models = len(set(map(id, policy.sessions)))
-    print(f"mode={policy.mode}  models={n_models}  providers={policy.providers}")
-    print(f"inputs: {sorted(set().union(*(s.inputs for s in policy.sessions)))}")
+    print(f"mode={policy.mode}  models={policy.n_models}  providers={policy.providers}")
+    print(f"inputs: {sorted(policy.inputs)}")
 
     rng = np.random.default_rng(0)
     slots = np.arange(TEAM_SIZE, dtype=np.int64)

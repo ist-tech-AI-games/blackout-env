@@ -51,7 +51,7 @@ def play(env: BlackOutEnv, path: Path, recorder: ScreenRecorder | None = None,
     seed = int(data["seed"])
     meta = json.loads(str(data["meta"]))
 
-    obs, _ = env.reset(seed=None if seed < 0 else seed)
+    env.reset(seed=None if seed < 0 else seed)
     if recorder is not None:
         recorder.start(video)
     info: dict = {}
@@ -59,7 +59,7 @@ def play(env: BlackOutEnv, path: Path, recorder: ScreenRecorder | None = None,
     try:
         while env.agents and t < len(actions):
             step = {agent_name(i): actions[t, i] for i in np.flatnonzero(present[t])}
-            obs, _, _, _, infos = env.step(step)
+            _, _, _, _, infos = env.step(step)
             if infos:
                 info = next(iter(infos.values()))
             t += 1
@@ -71,6 +71,21 @@ def play(env: BlackOutEnv, path: Path, recorder: ScreenRecorder | None = None,
     return {"logged": meta.get("final"), "replayed": replayed}
 
 
+def render_videos(build: str, replays: list[Path], out_dir: Path, worker_id: int = 0) -> None:
+    """Replay each saved match at time_scale 1 and record it to out_dir/<replay name>.mp4."""
+    recorder = ScreenRecorder()
+    screen = ["-screen-width", str(recorder.width), "-screen-height", str(recorder.height),
+              "-screen-fullscreen", "0"]
+    env = BlackOutEnv(build, no_graphics=False, time_scale=1.0, worker_id=worker_id, additional_args=screen)
+    try:
+        for path in replays:
+            video = out_dir / f"{path.stem}.mp4"
+            r = play(env, path, recorder, video)
+            print(f"{video}: logged {r['logged']}, replayed {r['replayed']}", flush=True)
+    finally:
+        env.close()
+
+
 def main() -> None:
     p = argparse.ArgumentParser(description="Render saved BlackOut matches to mp4")
     p.add_argument("replays", type=Path, nargs="+")
@@ -78,22 +93,7 @@ def main() -> None:
     p.add_argument("--out", type=Path, required=True, help="directory for the mp4 files")
     p.add_argument("--worker-id", type=int, default=0)
     args = p.parse_args()
-
-    recorder = ScreenRecorder()
-    env = make_render_env(args.build, recorder, args.worker_id)
-    try:
-        for path in args.replays:
-            video = args.out / f"{path.stem}.mp4"
-            result = play(env, path, recorder, video)
-            print(f"{video}: {result}", flush=True)
-    finally:
-        env.close()
-
-
-def make_render_env(build: str, recorder: ScreenRecorder, worker_id: int) -> BlackOutEnv:
-    screen = ["-screen-width", str(recorder.width), "-screen-height", str(recorder.height),
-              "-screen-fullscreen", "0"]
-    return BlackOutEnv(build, no_graphics=False, time_scale=1.0, worker_id=worker_id, additional_args=screen)
+    render_videos(args.build, args.replays, args.out, args.worker_id)
 
 
 if __name__ == "__main__":

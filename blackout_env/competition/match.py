@@ -7,13 +7,13 @@ Supports single match and best-of-N series with team swapping for fairness.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Callable
 
 import numpy as np
 
 from ..env.blackout_env import BlackOutEnv
-from ..env.constants import team_of, team_a_agents, team_b_agents
+from ..env.constants import team_a_agents, team_b_agents
 from ..model.base import BaseModel
 
 
@@ -28,10 +28,18 @@ class MatchResult:
     model_a_score: float = 0.0  # final game score of model_a's team (score / target_score)
     model_b_score: float = 0.0
     seed: int | None = None
+    swap_teams: bool = False    # True = model_a played Team B
 
     @property
     def is_draw(self) -> bool:
         return self.winner is None
+
+    @property
+    def team_scores(self) -> tuple[float, float]:
+        """Final scores by side: (Team A = unit_0~4, Team B = unit_5~9)."""
+        if self.swap_teams:
+            return self.model_b_score, self.model_a_score
+        return self.model_a_score, self.model_b_score
 
 
 @dataclass
@@ -103,11 +111,9 @@ def run_match(
     if not swap_teams:
         controller = {name: model_a for name in team_a_names}
         controller.update({name: model_b for name in team_b_names})
-        model_a_team = 0
     else:
         controller = {name: model_b for name in team_a_names}
         controller.update({name: model_a for name in team_b_names})
-        model_a_team = 1
 
     obs, _ = env.reset(seed=seed)
 
@@ -172,6 +178,7 @@ def run_match(
         model_a_score=model_a_score,
         model_b_score=model_b_score,
         seed=seed,
+        swap_teams=swap_teams,
     )
 
 

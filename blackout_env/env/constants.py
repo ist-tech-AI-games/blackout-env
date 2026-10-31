@@ -11,6 +11,7 @@ MAP_BEHAVIOR_NAME = "BlackOutMap"
 N_AGENTS = 10
 N_TEAM_A = 5   # unitIndex 0~4, TeamId 0
 N_TEAM_B = 5   # unitIndex 5~9, TeamId 1
+TEAM_SIZE = 5  # units per team; a unit's slot within its team is unit_index % TEAM_SIZE
 
 TEAM_A_INDICES = tuple(range(0, 5))
 TEAM_B_INDICES = tuple(range(5, 10))
@@ -27,8 +28,8 @@ def unit_index(agent: str) -> int:
     """Parse unitIndex from an agent identifier string (e.g. 'unit_3' → 3)."""
     try:
         return int(agent.split("_")[1])
-    except (IndexError, ValueError):
-        raise ValueError(f"Invalid agent name: {agent!r}")
+    except (IndexError, ValueError) as e:
+        raise ValueError(f"Invalid agent name: {agent!r}") from e
 
 
 def team_of(agent: str) -> int:
