@@ -115,6 +115,8 @@ def run_match(
         controller = {name: model_b for name in team_a_names}
         controller.update({name: model_a for name in team_b_names})
 
+    model_a.reset()
+    model_b.reset()
     obs, _ = env.reset(seed=seed)
 
     total_rewards: dict[str, float] = {a: 0.0 for a in env.possible_agents}

@@ -1,6 +1,6 @@
 """
-Check an ONNX submission before sending it in: layout, input names/shapes, output shape,
-and time per step on this machine.
+Check an ONNX submission before sending it in: layout, input names/shapes, frame stack,
+recurrent state outputs, action shape, and time per step on this machine.
 
 Runs as a plain script without importing blackout_env (whose mlagents dependency pins an old
 protobuf that clashes with onnx), so it works in a separate export environment:
@@ -39,7 +39,8 @@ def main() -> None:
     except SubmissionError as e:
         sys.exit(f"FAIL: {e}")
     print(f"mode={policy.mode}  models={policy.n_models}  providers={policy.providers}")
-    print(f"inputs: {sorted(policy.inputs)}")
+    print(f"inputs: {sorted(policy.inputs)}  frame_stack={policy.frame_stack}  "
+          f"states: {sorted(policy.state_inputs) or 'none'}")
 
     rng = np.random.default_rng(0)
     slots = np.arange(TEAM_SIZE, dtype=np.int64)

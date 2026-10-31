@@ -58,8 +58,37 @@ def slot_model(path: Path, batch):
     _save(path, nodes, inputs, 2, [_int64("ax", [1])])
 
 
-def submission(tmp_path: Path, mode) -> Path:
-    (tmp_path / "meta.json").write_text(json.dumps({"mode": mode}))
+def stacked_model(path: Path, batch, k):
+    """vector (B, k, 96) -> action = (vector[:, 0, 0], vector[:, k-1, 0]): oldest and newest frame."""
+    inputs = [helper.make_tensor_value_info("vector", TensorProto.FLOAT, [batch, k, 96]),
+              helper.make_tensor_value_info("graphic", TensorProto.FLOAT, [batch, k, 11, 96, 96])]
+    nodes = [helper.make_node("Slice", ["vector", "starts", "ends", "axes"], ["first"]),
+             helper.make_node("Squeeze", ["first", "axes"], ["frames"]),
+             helper.make_node("Gather", ["frames", "idx"], ["action"], axis=1)]
+    inits = [_int64("starts", [0]), _int64("ends", [1]), _int64("axes", [2]), _int64("idx", [0, k - 1])]
+    _save(path, nodes, inputs, 2, inits)
+
+
+def counter_model(path: Path, batch, with_output=True):
+    """state_in (B, 1) counts calls: action = [state, state], state_out = state + 1."""
+    inputs = [helper.make_tensor_value_info("vector", TensorProto.FLOAT, [batch, 96]),
+              helper.make_tensor_value_info("state_in", TensorProto.FLOAT, [batch, 1])]
+    nodes = [helper.make_node("Concat", ["state_in", "state_in"], ["action"], axis=1),
+             helper.make_node("Add", ["state_in", "one"], ["state_out"])]
+    outputs = [helper.make_tensor_value_info("action", TensorProto.FLOAT, [batch, 2])]
+    if with_output:
+        outputs.append(helper.make_tensor_value_info("state_out", TensorProto.FLOAT, [batch, 1]))
+    else:
+        nodes.pop()
+    graph = helper.make_graph(nodes, "g", inputs, outputs,
+                              initializer=[helper.make_tensor("one", TensorProto.FLOAT, [], [1.0])])
+    model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 17)])
+    model.ir_version = 8
+    onnx.save(model, str(path))
+
+
+def submission(tmp_path: Path, mode, **meta) -> Path:
+    (tmp_path / "meta.json").write_text(json.dumps({"mode": mode, **meta}))
     return tmp_path
 
 
@@ -123,6 +152,13 @@ def test_warm_up_runs(tmp_path):
     (lambda d: (submission(d, "team"), vector_model(d / "model.onnx", 1)), "expected (5, 96)"),
     (lambda d: (submission(d, "team"), vector_model(d / "model.onnx", 5, vector_name="obs")), "inputs must be named"),
     (lambda d: (submission(d, "unit"), vector_model(d / "unit_0.onnx", 1)), "missing ['unit_1.onnx'"),
+    (lambda d: (submission(d, "team", frame_stack=3), vector_model(d / "model.onnx", 5)), "expected shape (5, 3, 96)"),
+    (lambda d: (submission(d, "team"), stacked_model(d / "model.onnx", 5, 3)), "expected shape (5, 96)"),
+    (lambda d: (submission(d, "team", frame_stack=0), vector_model(d / "model.onnx", 5)), '"frame_stack" must be'),
+    (lambda d: (submission(d, "team", frame_stack=17), vector_model(d / "model.onnx", 5)), '"frame_stack" must be'),
+    (lambda d: (submission(d, "team", frame_stack="4"), vector_model(d / "model.onnx", 5)), '"frame_stack" must be'),
+    (lambda d: (submission(d, "team"), counter_model(d / "model.onnx", 5, with_output=False)),
+     "needs an output named 'state_out'"),
 ])
 def test_bad_submissions_are_rejected(tmp_path, setup, message):
     setup(tmp_path)
@@ -136,3 +172,58 @@ def test_wrong_output_shape_fails_at_run_time(tmp_path):
     policy = op.load_policy(sub, CPU)
     with pytest.raises(ValueError, match="expected"):
         policy.act(*team_inputs(), np.arange(5))
+
+
+def step(policy, values, slots=None):
+    """One step where unit row i has vector[:, 0] = values[i]."""
+    slots = np.arange(len(values)) if slots is None else np.asarray(slots)
+    vector = np.zeros((len(values), 96), np.float32)
+    vector[:, 0] = values
+    return policy.act(vector, np.zeros((len(values), 11, 96, 96), np.float32), slots)
+
+
+def test_frame_stack_feeds_oldest_to_newest(tmp_path):
+    sub = submission(tmp_path, "team", frame_stack=3)
+    stacked_model(sub / "model.onnx", 5, 3)
+    policy = op.load_policy(sub, CPU)
+    policy.warm_up()
+    assert policy.frame_stack == 3
+    np.testing.assert_array_equal(step(policy, [1] * 5)[0], [1, 1])  # first frame fills the stack
+    step(policy, [2] * 5)
+    np.testing.assert_array_equal(step(policy, [3] * 5)[0], [1, 3])
+    np.testing.assert_array_equal(step(policy, [4] * 5)[0], [2, 4])
+    policy.reset()
+    np.testing.assert_array_equal(step(policy, [9] * 5)[0], [9, 9])
+
+
+def test_observe_adds_frames_without_running(tmp_path):
+    sub = submission(tmp_path, "unit", frame_stack=2)
+    stacked_model(sub / "model.onnx", 1, 2)
+    policy = op.load_policy(sub, CPU)
+    step(policy, [1, 1])
+    vector = np.full((2, 96), 5, np.float32)
+    policy.observe(vector, np.zeros((2, 11, 96, 96), np.float32), np.arange(2))
+    np.testing.assert_array_equal(step(policy, [6, 6]), [[5, 6], [5, 6]])
+
+
+def test_team_state_is_kept_per_slot(tmp_path):
+    sub = submission(tmp_path, "team")
+    counter_model(sub / "model.onnx", 5)
+    policy = op.load_policy(sub, CPU)
+    policy.warm_up()  # warm-up must not leave state behind
+    assert policy.state_inputs == {"state_in"} and policy.inputs == {"vector"}
+    assert step(policy, [0] * 5)[:, 0].tolist() == [0] * 5
+    assert step(policy, [0] * 5)[:, 0].tolist() == [1] * 5
+    assert step(policy, [0, 0], slots=[1, 3])[:, 0].tolist() == [2, 2]  # missing units keep their state
+    assert step(policy, [0] * 5)[:, 0].tolist() == [2, 3, 2, 3, 2]
+    policy.reset()
+    assert step(policy, [0] * 5)[:, 0].tolist() == [0] * 5
+
+
+def test_unit_state_is_kept_per_slot(tmp_path):
+    sub = submission(tmp_path, "unit")
+    counter_model(sub / "model.onnx", 1)
+    policy = op.load_policy(sub, CPU)
+    step(policy, [0, 0], slots=[0, 4])
+    step(policy, [0], slots=[4])
+    assert step(policy, [0, 0], slots=[0, 4])[:, 0].tolist() == [1, 2]

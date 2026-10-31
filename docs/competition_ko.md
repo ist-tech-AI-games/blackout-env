@@ -8,7 +8,7 @@
 
 ```
 my_team/
-├── meta.json      {"mode": "team"} 또는 {"mode": "unit"}
+├── meta.json      {"mode": "team"} 또는 {"mode": "unit"}, 필요하면 "frame_stack": K
 └── model.onnx
 ```
 
@@ -30,7 +30,7 @@ my_team/
 | `graphic` | float32 | `(B, 11, 96, 96)` |
 | `slot` | int64 | `(B,)` |
 
-출력은 첫 번째 출력 하나만 보며, float32 `(B, 2)`로 유닛별 `(dx, dy)`입니다. 값은 `[-1, 1]`로 자르고 NaN은 0으로 바꿉니다. 호출 사이에 상태는 남지 않습니다.
+행동은 `state_out`으로 시작하지 않는 첫 번째 출력이며, float32 `(B, 2)`로 유닛별 `(dx, dy)`입니다. 값은 `[-1, 1]`로 자르고 NaN은 0으로 바꿉니다.
 
 ### 행 순서와 slot
 
@@ -52,6 +52,35 @@ self_idx = slot + torch.where(is_team_a, 0, 5)  # 10명 중 자기 번호
 채널마다 0/1 마스크입니다. 순서는 빈칸, 벽, 우리 창고, 상대 창고, 아군, 적군, 그리고 아이템 5종(배터리, 속도 버프, 속도 디버프, 크기 버프, 크기 디버프)입니다.
 
 env는 `(H, W, C)`로 주지만 모델에는 `(C, H, W)`로 들어갑니다. `load_checkpoint`/`run_match`로 학습했다면 이미 이 순서입니다.
+
+### 이전 프레임 쌓기 (frame_stack)
+
+`meta.json`에 `"frame_stack": K`(1~16)를 넣으면 최근 K스텝의 관측을 쌓아서 줍니다. 쌓는 건 서버가 유닛마다 따로 합니다.
+
+| 이름 | 모양 (K > 1) |
+|---|---|
+| `vector` | `(B, K, 96)` |
+| `graphic` | `(B, K, 11, 96, 96)` |
+
+오래된 프레임이 앞이고 `[:, -1]`이 현재 프레임입니다. 에피소드 첫 스텝에는 아직 쌓인 게 없어서 첫 관측을 K개 복사해 채웁니다. 시간 초과로 답하지 못한 스텝의 관측도 쌓입니다. `slot`은 쌓지 않습니다.
+
+학습할 때도 같은 방식으로 쌓아야 합니다. `blackout_env.competition.onnx_policy.FrameStack`이 서버가 쓰는 코드라 그대로 가져다 쓰면 됩니다.
+
+```python
+from blackout_env.competition.onnx_policy import FrameStack
+
+stack = FrameStack(4)
+stack.reset()                                   # 에피소드 시작마다
+v, g = stack.push(slots, vector, graphic_chw)   # (N, 4, 96), (N, 4, 11, 96, 96)
+```
+
+### 은닉 상태 (RNN)
+
+LSTM이나 GRU처럼 스텝 사이에 상태를 넘기는 모델은 `state_in`으로 시작하는 입력과, 이름 뒤쪽이 같은 `state_out` 출력을 짝지어 선언하면 됩니다(`state_in` ↔ `state_out`, `state_in_c` ↔ `state_out_c`). 모양은 float32 `(B, ...)`이고 배치 뒤 크기는 고정이어야 합니다.
+
+서버가 유닛마다 `state_out`을 저장했다가 그 유닛의 다음 스텝에 `state_in`으로 넣어줍니다. 에피소드가 시작할 때는 0입니다. `team` 방식에서 죽어서 빠진 유닛은 상태가 그대로 유지됩니다. 답하지 못한 스텝에서는 상태가 갱신되지 않습니다.
+
+`frame_stack`과 같이 써도 됩니다.
 
 ## ONNX로 내보내기
 
@@ -81,6 +110,17 @@ torch.onnx.export(
 )
 ```
 
+```python
+# team, frame_stack 4 + GRU 상태 (forward(vector, graphic, state_in) -> (action, state_out))
+torch.onnx.export(
+    model.eval(),
+    (torch.zeros(5, 4, 96), torch.zeros(5, 4, 11, 96, 96), torch.zeros(5, 64)),
+    "my_team/model.onnx",
+    input_names=["vector", "graphic", "state_in"], output_names=["action", "state_out"],
+    opset_version=17, dynamo=False,
+)
+```
+
 export는 예시 입력으로 모델을 한 번 돌려 그래프를 기록합니다. 그래서 입력값에 따라 갈리는 Python `if`나 `for`는 그때 탄 경로로 굳어버립니다. 이런 부분은 `torch.where` 같은 텐서 연산으로 바꿔두세요.
 
 ## 제출 전 검사
@@ -89,7 +129,7 @@ export는 예시 입력으로 모델을 한 번 돌려 그래프를 기록합니
 python blackout_env/competition/check_submission.py my_team/
 ```
 
-공식 경기와 같은 코드로 모델을 불러서 폴더 구성, 입력 이름·모양, 출력 모양을 확인하고 스텝당 실행 시간을 잽니다. `OK`가 나오면 형식은 문제없습니다. 시간은 내 컴퓨터 기준이니 여유를 두세요.
+공식 경기와 같은 코드로 모델을 불러서 폴더 구성, 입력 이름·모양, frame_stack, 상태 입출력 짝, 출력 모양을 확인하고 스텝당 실행 시간을 잽니다. `OK`가 나오면 형식은 문제없습니다. 시간은 내 컴퓨터 기준이니 여유를 두세요.
 
 ## 제한
 

@@ -9,7 +9,7 @@ import numpy as np
 
 class BaseModel(ABC):
     """
-    Stateless inference interface for a team of 5 agents.
+    Inference interface for a team of 5 agents.
 
     Implement this class and pass instances to run_match().
 
@@ -32,6 +32,12 @@ class BaseModel(ABC):
                     actions[agent] = action
                 return actions
     """
+
+    def reset(self) -> None:
+        """
+        Called by run_match() before every episode. Override it to clear per-episode
+        memory (stacked frames, recurrent state). The default does nothing.
+        """
 
     @abstractmethod
     def act(
