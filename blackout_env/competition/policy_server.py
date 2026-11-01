@@ -12,6 +12,7 @@ run as a script, so it must not import blackout_env.
 from __future__ import annotations
 
 import argparse
+import faulthandler
 import os
 import socket
 import sys
@@ -78,8 +79,10 @@ def serve(policy: Policy, sock_path: Path) -> None:
                     send_msg(conn, {"seq": seq}, action.tobytes())
                 except Exception as e:  # report per-step failures, keep serving
                     send_msg(conn, {"seq": seq, "error": f"{type(e).__name__}: {e}"})
-        except (ConnectionError, ValueError, KeyError) as e:
+        except ConnectionError as e:
             log(f"connection dropped ({type(e).__name__}: {e}); waiting for a new connection")
+        except Exception:  # a malformed request or a bug here: drop this connection, keep serving
+            log("closing the connection after an error; waiting for a new connection\n" + traceback.format_exc())
         finally:
             conn.close()
 
@@ -89,6 +92,7 @@ def main() -> None:
     parser.add_argument("--submission", default="/submission")
     parser.add_argument("--socket", default="/sock/policy.sock")
     args = parser.parse_args()
+    faulthandler.enable()  # print the Python stack if onnxruntime crashes the process
 
     log(f"mps_thread_pct={os.environ.get('CUDA_MPS_ACTIVE_THREAD_PERCENTAGE')}, "
         f"mps_mem_limit={os.environ.get('CUDA_MPS_PINNED_DEVICE_MEM_LIMIT')}")

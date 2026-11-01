@@ -8,6 +8,7 @@ import numpy as np
 import pytest
 
 from blackout_env.competition.protocol import recv_pending, send_msg
+from blackout_env.competition import remote_model
 from blackout_env.competition.remote_model import RemoteModel
 
 pytestmark = pytest.mark.skipif(not hasattr(socket, "AF_UNIX"), reason="needs Unix sockets")
@@ -109,3 +110,54 @@ def test_reset_flag_marks_first_request_of_each_episode(tmp_path):
     model.act(team_obs())
     model.close()
     assert [r.get("reset", False) for r in requests] == [True, False, True]
+
+
+def drop_after_first_answer(path):
+    """Server that answers once, closes the connection, then keeps answering a new one."""
+    srv = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    srv.bind(str(path))
+    srv.listen(1)
+
+    def loop():
+        for answers in (1, None):
+            conn, _ = srv.accept()
+            buf = bytearray()
+            try:
+                n = 0
+                while answers is None or n < answers:
+                    header, body = recv_pending(conn, buf, 1 << 26)[-1]
+                    if header.get("type") == "close":
+                        return
+                    send_msg(conn, *echo_slots(header, body))
+                    n += 1
+            except ConnectionError:
+                return
+            finally:
+                conn.close()
+        srv.close()
+
+    threading.Thread(target=loop, daemon=True).start()
+
+
+def test_lost_connection_holds_the_step_and_resends(tmp_path):
+    drop_after_first_answer(tmp_path / "p.sock")
+    model = RemoteModel(str(tmp_path / "p.sock"))
+    model.act(team_obs())
+    held = model.act(team_obs())                 # connection lost, reconnect, same request again
+    model.close()
+    np.testing.assert_allclose(held["unit_8"], [0.3, 0.3])
+    assert model.stats.reconnects == 1 and model.stats.errors == 0
+
+
+def test_after_max_reconnects_the_team_stands_still_and_retries_later(tmp_path, monkeypatch):
+    monkeypatch.setattr(remote_model, "RECONNECT_INTERVAL", 0.05)
+    drop_after_first_answer(tmp_path / "p.sock")
+    model = RemoteModel(str(tmp_path / "p.sock"), max_reconnects=0)
+    model.act(team_obs())
+    lost = model.act(team_obs())
+    time.sleep(0.1)
+    back = model.act(team_obs())
+    model.close()
+    assert all(v.tolist() == [0.0, 0.0] for v in lost.values())
+    np.testing.assert_allclose(back["unit_8"], [0.3, 0.3])
+    assert model.stats.reconnects == 1 and model.stats.errors == 1
